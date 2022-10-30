@@ -106,6 +106,40 @@ void benchmarkScan(MemScanner& scanner, unsigned char* alloc, size_t allocSize){
 	printf("On average %.2fms / scan, %.1fMB/s\n", timePerScan, 1000. / timePerScan * (allocSize / 1000000.));
 }
 
+void benchmarkMultiThreadedScan(MemScanner& scanner, unsigned char* alloc, size_t allocSize){
+	const char* impossibleSig = "01 02 03 04 05 06 07 08 09 10 11 12";
+	int numBytes = 12;
+	scanner.evictCache();
+	assert(scanner.findSignatureInRange<true>(impossibleSig, (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false) == nullptr);
+	assert(scanner.findSignatureInRange<false>(impossibleSig, (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false) == nullptr);
+
+	auto start = std::chrono::high_resolution_clock::now();
+	int i = 0;
+	for(; i < 300; i++){
+		std::vector<std::thread> trs;
+		int numSplits = 16;
+		auto doStuff = [&](uintptr_t from, uintptr_t to){
+			volatile auto result = scanner.findSignatureInRange<true>(impossibleSig, from, to, false);
+		};
+		auto bytesPerSplit = allocSize / numSplits;
+		assert(bytesPerSplit - numBytes >= 0);
+		for(int t = 0; t < numSplits; t++){
+			auto begin = t == 0 ? alloc : &alloc[bytesPerSplit * t - numBytes];
+			auto end = t == numSplits - 1 ? &alloc[allocSize] : &alloc[bytesPerSplit * (t + 1)];
+
+			trs.emplace_back(doStuff, (uintptr_t) begin, (uintptr_t) end);
+		}
+
+		for(std::thread& t : trs)
+			if(t.joinable())
+				t.join();
+	}
+
+	auto end = std::chrono::high_resolution_clock::now();
+	double timePerScan = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / (double)i / 1000;
+	printf("On average %.2fms / scan, %.1fMB/s\n", timePerScan, 1000. / timePerScan * (allocSize / 1000000.));
+}
+
 int main(){
 	const size_t allocSize = 0x5000000;// ~83MB
 
@@ -124,8 +158,13 @@ int main(){
 	printf("Tests success!\n");
 	printf("AVX: %s\n", MemScanner::hasFullAVXSupport() ? "enabled" : "unsupported");
 
-	for(int i = 0; i < 5; i++)
+	printf("Benchmarking single threaded performance...\n");
+	for(int i = 0; i < 10; i++)
 		benchmarkScan(scanner, alloc, allocSize);
+
+	printf("Benchmarking multi threaded performance...\n");
+	for(int i = 0; i < 10; i++)
+		benchmarkMultiThreadedScan(scanner, alloc, allocSize);
 
 	return 0;
 }
