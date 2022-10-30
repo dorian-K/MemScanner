@@ -4,11 +4,15 @@
 
 namespace MemScanner {
 	class Mem {
+	protected:
+		MemScanner myScanner{};
 	public:
+		void startSigThread(){
+			myScanner.startSigRunnerThread();
+		}
+
 		static std::pair<uint64_t, uint64_t> GetSectionRange(void* module, const char* name);
 		template <bool forward>
-		static void* FindSignature(const char* szSignature, bool enableCache = true, void* module = nullptr, const char* section = ".text");
+		void* findSignature(const char* szSignature, bool enableCache = true, void* module = nullptr, const char* section = ".text");
 	};
-
-	extern MemScanner gMemScanner;
 };

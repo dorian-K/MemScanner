@@ -26,7 +26,7 @@ namespace MemScanner {
 	}
 
 	template<bool forward>
-	void *Mem::FindSignature(const char *szSignature, bool enableCache, void *module, const char *section) {
+	void *Mem::findSignature(const char *szSignature, bool enableCache, void *module, const char *section) {
 		static auto ExeHandle = (void *) GetModuleHandleA(nullptr);
 		static MODULEINFO miModInfo;
 		static std::pair<uint64_t, uint64_t> ExeTextSection;
@@ -64,14 +64,10 @@ namespace MemScanner {
 		}
 		//dprnt("ranges: {} - {}; {} - {}", (void*)rangeStart, (void*)rangeEnd, (void*)ExeHandle, (void*)((uintptr_t)ExeHandle + miModInfo.SizeOfImage));
 
-		return gMemScanner.findSignatureInRange<forward>(szSignature, rangeStart, rangeEnd, enableCache);
+		return myScanner.findSignatureInRange<forward>(szSignature, rangeStart, rangeEnd, enableCache);
 	}
 
+	template void *Mem::findSignature<true>(const char *, bool, void *, const char *);
 
-	template void *Mem::FindSignature<true>(const char *, bool, void *, const char *);
-
-	template void *Mem::FindSignature<false>(const char *, bool, void *, const char *);
-
-	MemScanner gMemScanner;
-
+	template void *Mem::findSignature<false>(const char *, bool, void *, const char *);
 }
