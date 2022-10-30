@@ -293,7 +293,7 @@ void* MemScanner::findSignatureFast32(const std::vector<unsigned char>& bytes, c
 	if (patternSize <= 1 || !forward) return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
 	if(!MemScanner::hasFullAVXSupport()) return this->findSignatureFast8<true>(bytes, mask, rangeStart, rangeEnd);
 	if (rangeStart + std::max((size_t)32, bytes.size()) > rangeEnd) MEM_UNLIKELY
-		return nullptr;
+		return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
 
 	const __m256i firstByteLaidOut = _mm256_set1_epi8(*reinterpret_cast<const char*>(&bytes[0])); // AVX
 
@@ -307,10 +307,8 @@ void* MemScanner::findSignatureFast32(const std::vector<unsigned char>& bytes, c
 		//unsigned int matches = _mm256_cmpeq_epi8_mask(toBeCompared, firstByteLaidOut); // AVX-512
 		const __m256i cmp = _mm256_cmpeq_epi8(toBeCompared, firstByteLaidOut); // AVX2
 		unsigned int matches = _mm256_movemask_epi8(cmp); // AVX2
-		if(matches == 0)
-			continue;
 
-		do{
+		while(matches){
 			unsigned long curBit = 0;
 			_BitScanForward(&curBit, matches);
 
@@ -325,7 +323,7 @@ void* MemScanner::findSignatureFast32(const std::vector<unsigned char>& bytes, c
 			if (off >= patternSize) MEM_UNLIKELY return reinterpret_cast<void*>(pCur + curBit);
 
 			matches = _blsr_u32(matches);
-		}while(matches);
+		}
 	}
 
 	if(patternSize < 32){ // Scan the remaining 32 bytes with the old algorithm

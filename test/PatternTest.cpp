@@ -117,7 +117,7 @@ void benchmarkMultiThreadedScan(MemScanner& scanner, unsigned char* alloc, size_
 	int i = 0;
 	for(; i < 300; i++){
 		std::vector<std::thread> trs;
-		int numSplits = 16;
+		int numSplits = std::clamp(std::thread::hardware_concurrency() / 2, 1u, 8u);
 		auto doStuff = [&](uintptr_t from, uintptr_t to){
 			volatile auto result = scanner.findSignatureInRange<true>(impossibleSig, from, to, false);
 		};
