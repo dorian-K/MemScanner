@@ -1,7 +1,11 @@
 #include "MemScanner.h"
 
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 // clang-format off
 #include <windows.h>
 #include <psapi.h>
@@ -168,7 +172,7 @@ bool MemScanner::hasFullAVXSupport() {
 bool MemScanner::doSearchSingleMapKey() {
 
 	SearchMapKey key;
-	SearchMapValue regionToBeSearched{};
+	SearchMapValue regionToBeSearched;
 	{
 		std::lock_guard g(needSearchMutex);
 		if (needSearchMap.empty()) return false;
