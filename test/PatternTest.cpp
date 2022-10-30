@@ -3,7 +3,7 @@
 #include <MemScanner/MemScanner.h>
 #include <cassert>
 
-void testPatternAtEndOfBuffer(MemScanner& scanner, unsigned char* alloc, size_t allocSize){
+void testPatternAtEndOfBuffer(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t allocSize){
 
 	{ // without cache
 		auto res = scanner.findSignatureInRange<true>("01 02 03 04", (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false);
@@ -47,7 +47,7 @@ void testPatternAtEndOfBuffer(MemScanner& scanner, unsigned char* alloc, size_t 
 	scanner.evictCache();
 }
 
-void testPatternAtStartOfBuffer(MemScanner& scanner, unsigned char* alloc, size_t allocSize){
+void testPatternAtStartOfBuffer(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t allocSize){
 	{ // without cache
 		auto res = scanner.findSignatureInRange<true>("01 02 03 04", (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false);
 		assert(res == nullptr);
@@ -88,7 +88,7 @@ void testPatternAtStartOfBuffer(MemScanner& scanner, unsigned char* alloc, size_
 	alloc[3] = 0x00;
 	scanner.evictCache();
 }
-void benchmarkScan(MemScanner& scanner, unsigned char* alloc, size_t allocSize){
+void benchmarkScan(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t allocSize){
 	const char* impossibleSig = "01 02 03 04 05 06 07 08 09 10 11 12";
 	scanner.evictCache();
 	assert(scanner.findSignatureInRange<true>(impossibleSig, (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false) == nullptr);
@@ -106,7 +106,7 @@ void benchmarkScan(MemScanner& scanner, unsigned char* alloc, size_t allocSize){
 	printf("On average %.2fms / scan, %.1fMB/s\n", timePerScan, 1000. / timePerScan * (allocSize / 1000000.));
 }
 
-void benchmarkMultiThreadedScan(MemScanner& scanner, unsigned char* alloc, size_t allocSize){
+void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t allocSize){
 	const char* impossibleSig = "01 02 03 04 05 06 07 08 09 10 11 12";
 	int numBytes = 12;
 	scanner.evictCache();
@@ -152,11 +152,11 @@ int main(){
 		*reinterpret_cast<uint64_t*>(&alloc[i]) = distribution(generator);
 	printf("Allocated!\n");
 
-	MemScanner scanner; // Don't start sig runner thread, we do not need it
+	MemScanner::MemScanner scanner; // Don't start sig runner thread, we do not need it
 	testPatternAtEndOfBuffer(scanner, alloc, allocSize);
 	testPatternAtStartOfBuffer(scanner, alloc, allocSize);
 	printf("Tests success!\n");
-	printf("AVX: %s\n", MemScanner::hasFullAVXSupport() ? "enabled" : "unsupported");
+	printf("AVX: %s\n", MemScanner::MemScanner::hasFullAVXSupport() ? "enabled" : "unsupported");
 
 	printf("Benchmarking single threaded performance...\n");
 	for(int i = 0; i < 10; i++)
