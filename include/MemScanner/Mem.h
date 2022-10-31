@@ -10,6 +10,9 @@ namespace MemScanner {
 		void startSigThread(){
 			myScanner.startSigRunnerThread();
 		}
+		void stopSigThread(){
+			myScanner.stopSigRunnerThread();
+		}
 
 		static std::pair<uint64_t, uint64_t> GetSectionRange(void* module, const char* name);
 		template <bool forward>
