@@ -5,8 +5,11 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_library(MemScanner src/MemScanner.cpp include/MemScanner/MemScanner.h src/Mem.cpp include/MemScanner/Mem.h)
 target_include_directories(MemScanner PUBLIC include/)
+
+if(DEFINED MEM_SCANNER_RUNTIME_LIBRARY)
 set_property(TARGET MemScanner PROPERTY
-        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+        MSVC_RUNTIME_LIBRARY ${MEM_SCANNER_RUNTIME_LIBRARY})
+endif()
 
 # Tests
 add_executable(PatternTest test/PatternTest.cpp src/MemScanner.cpp include/MemScanner/MemScanner.h src/Mem.cpp include/MemScanner/Mem.h)
