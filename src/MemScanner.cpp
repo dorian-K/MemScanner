@@ -1,5 +1,9 @@
 #include <MemScanner/MemScanner.h>
 
+#include <cstring>
+#include <iostream>
+
+#ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -10,7 +14,34 @@
 #include <windows.h>
 #include <psapi.h>
 // clang-format on
+#endif
 #include <immintrin.h>
+#include <cpuid.h>
+#ifdef __GNUC__
+
+inline unsigned char _BitScanForward(unsigned long* index, unsigned long mask){
+    auto bt = __builtin_ffsll(mask);
+    if(bt != 0){
+        *index = bt - 1;
+        return true;
+    }
+    return false;
+}
+
+#endif
+#ifdef __clang__
+void cpuid_impl(
+   unsigned int cpuInfo[4],
+   int function_id,
+   int subfunction_id
+){
+    __get_cpuid_max(function_id, cpuInfo);
+}
+#else
+void cpuid_impl(unsigned int cpuInfo[4], int f, int sub){
+    __cpuidex(cpuInfo, f, sub);
+}
+#endif
 
 #ifndef _XCR_XFEATURE_ENABLED_MASK
 #define _XCR_XFEATURE_ENABLED_MASK 0
@@ -127,8 +158,8 @@ namespace MemScanner {
 		// http://stackoverflow.com/a/22521619/922184
 		bool avxSupported = false;
 
-		int cpuInfo[4];
-		__cpuidex(cpuInfo, 1, 0);
+		unsigned int cpuInfo[4];
+        cpuid_impl(cpuInfo, 1, 0);
 
 		bool osUsesXSAVE_XRSTORE = (cpuInfo[2] & (1 << 27)) != 0;
 		bool cpuAVXSupport = (cpuInfo[2] & (1 << 28)) != 0;
@@ -145,25 +176,30 @@ namespace MemScanner {
 		static int cached = -1;
 		if (cached != -1)
 			return cached == 1;
+#ifdef __GNUC__
+        cached = __builtin_cpu_supports("avx2") && __builtin_cpu_supports("avx");
+        return cached == 1;
+#endif
 
 		// OS Support
 		if (!hasAvxOSSupport()) {
 			cached = 0;
+            std::cout << " no os support " << std::endl;
 			return false;
 		}
 		// CPU support - https://github.com/Mysticial/FeatureDetector/blob/master/src/x86/cpu_x86.cpp#L109
-		bool avx, avx2;
-		int info[4];
-		__cpuidex(info, 0, 0);
+		bool avx = false, avx2 = false;
+		unsigned int info[4];
+        cpuid_impl(info, 0, 0);
 		int nIds = info[0];
 
 		if (nIds >= 0x00000001) {
-			__cpuidex(info, 0x00000001, 0);
+            cpuid_impl(info, 0x00000001, 0);
 
 			avx = (info[2] & ((int) 1 << 28)) != 0;
 		}
 		if (nIds >= 0x00000007) {
-			__cpuidex(info, 0x00000007, 0);
+            cpuid_impl(info, 0x00000007, 0);
 			avx2 = (info[1] & ((int) 1 << 5)) != 0;
 		}
 
@@ -171,6 +207,7 @@ namespace MemScanner {
 			cached = 1;
 			return true;
 		} else {
+            std::cout << "no  cpu support"  << avx << " " << avx2 << std::endl;
 			cached = 0;
 			return false;
 		}
@@ -234,7 +271,7 @@ namespace MemScanner {
 		const int patternSize = (int) mask.size();
 		if (patternSize < 1)
 			MEM_UNLIKELY
-					__debugbreak();
+					throw std::runtime_error("invalid pattern");
 		if (rangeStart + bytes.size() > rangeEnd) MEM_UNLIKELY
 			return nullptr;
 		auto *maskStart = mask.data();
@@ -243,7 +280,7 @@ namespace MemScanner {
 		auto startMask = reinterpret_cast<const unsigned char *>(maskStart)[0];
 		if (startMask == 0)
 			MEM_UNLIKELY
-					__debugbreak();
+            throw std::runtime_error("invalid pattern");
 		const auto end = rangeEnd - patternSize;
 
 		for (uintptr_t pCur = forward ? rangeStart : end; forward ? (pCur <= end) : (pCur >=
@@ -276,17 +313,17 @@ namespace MemScanner {
 			return nullptr;
 
 		const auto *maskStart = mask.data();
-		const auto startMask = reinterpret_cast<const unsigned __int64 *>(maskStart)[0];
+		const auto startMask = reinterpret_cast<const uint64_t *>(maskStart)[0];
 
-		if (startMask != 0xFFFFFFFFFFFFFFFFui64) MEM_LIKELY // 1 Byte scan is more efficient with a mask
+		if (startMask != 0xFFFFFFFFFFFFFFFFU) MEM_LIKELY // 1 Byte scan is more efficient with a mask
 			return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
 
 		const auto *bytesStart = bytes.data();
-		const auto startByte = reinterpret_cast<const unsigned __int64 *>(bytesStart)[0];
+		const auto startByte = reinterpret_cast<const uint64_t *>(bytesStart)[0];
 		const auto end = rangeEnd - patternSize;
 
 		for (uintptr_t pCur = rangeStart; pCur <= end; pCur++) {
-			if (*reinterpret_cast<unsigned __int64 *>(pCur) == startByte) MEM_UNLIKELY {
+			if (*reinterpret_cast<uint64_t *>(pCur) == startByte) MEM_UNLIKELY {
 				uintptr_t curP = pCur + 8;
 				int off = 8;
 

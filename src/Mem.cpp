@@ -1,10 +1,13 @@
 #include "MemScanner/Mem.h"
 
+#ifdef _WIN32
 #include <windows.h>
 #include <psapi.h>
+#endif
 
 namespace MemScanner {
 
+#ifdef _WIN32
 	std::pair<uint64_t, uint64_t> Mem::GetSectionRange(void *module, const char *name) {
 		auto baseAddr = reinterpret_cast<uint64_t>(module);
 		auto *dosHeader = reinterpret_cast<PIMAGE_DOS_HEADER>(module);
@@ -66,6 +69,19 @@ namespace MemScanner {
 
 		return myScanner.findSignatureInRange<forward>(szSignature, rangeStart, rangeEnd, enableCache);
 	}
+#else
+    std::pair<uint64_t, uint64_t> Mem::GetSectionRange(void *module, const char *name) {
+        throw std::runtime_error("not implemented");
+        return {};
+    }
+    template<bool forward>
+    void *Mem::findSignature(const char *szSignature, bool enableCache, void *module, const char *section) {
+        throw std::runtime_error("not implemented");
+        return {};
+    }
+
+#endif
+
 
 	template void *Mem::findSignature<true>(const char *, bool, void *, const char *);
 

@@ -1,6 +1,8 @@
 #pragma once
 
+#include <vector>
 #include <shared_mutex>
+#include <mutex>
 #include <deque>
 #include <map>
 #include <unordered_map>
@@ -13,11 +15,11 @@ namespace MemScanner {
 		struct SearchMapKey {
 			union {
 				unsigned char bytes[8];
-				unsigned __int64 bytesHash = 0;
+				uint64_t bytesHash = 0;
 			};
 			union {
 				unsigned char mask[8];
-				unsigned __int64 maskHash = 0;
+                uint64_t maskHash = 0;
 			};
 			unsigned char numBytesUsed{};
 
@@ -51,7 +53,7 @@ namespace MemScanner {
 		};
 
 		struct hash_fn {
-			std::size_t operator()(const SearchMapKey &o) const { return std::hash<unsigned __int64>()(o.bytesHash); }
+			std::size_t operator()(const SearchMapKey &o) const { return std::hash<uint64_t>()(o.bytesHash); }
 		};
 
 		struct SearchMapValue {

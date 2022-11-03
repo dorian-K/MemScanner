@@ -10,10 +10,19 @@ if(DEFINED MEM_SCANNER_RUNTIME_LIBRARY)
 set_property(TARGET MemScanner PROPERTY
         MSVC_RUNTIME_LIBRARY ${MEM_SCANNER_RUNTIME_LIBRARY})
 endif()
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    add_compile_options(-fms-extensions -mxsave -mavx -mavx2 -mbmi)
+endif()
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    add_compile_options(-fms-extensions -mxsave -mavx -mavx2 -mbmi)
+endif()
 
 # Tests
 add_executable(PatternTest test/PatternTest.cpp src/MemScanner.cpp include/MemScanner/MemScanner.h src/Mem.cpp include/MemScanner/Mem.h)
 add_test(NAME PatternTest COMMAND PatternTest)
 target_include_directories(PatternTest PRIVATE include/)
-target_compile_options(PatternTest PRIVATE /Zi)
-target_link_options(PatternTest PRIVATE /DEBUG:FULL)
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    target_compile_options(PatternTest PRIVATE /Zi)
+    target_link_options(PatternTest PRIVATE /DEBUG:FULL)
+endif()
