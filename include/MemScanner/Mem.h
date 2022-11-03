@@ -14,6 +14,10 @@ namespace MemScanner {
 			myScanner.stopSigRunnerThread();
 		}
 
+		MemScanner& getScanner(){
+			return this->myScanner;
+		}
+
 		static std::pair<uint64_t, uint64_t> GetSectionRange(void* module, const char* name);
 		template <bool forward>
 		void* findSignature(const char* szSignature, bool enableCache = true, void* module = nullptr, const char* section = ".text");

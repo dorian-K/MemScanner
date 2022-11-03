@@ -16,8 +16,10 @@
 // clang-format on
 #endif
 #include <immintrin.h>
-#include <cpuid.h>
+#include <array>
+
 #ifdef __GNUC__
+#include <cpuid.h>
 
 inline unsigned char _BitScanForward(unsigned long* index, unsigned long mask){
     auto bt = __builtin_ffsll(mask);
@@ -30,16 +32,18 @@ inline unsigned char _BitScanForward(unsigned long* index, unsigned long mask){
 
 #endif
 #ifdef __clang__
+template <typename T>
 void cpuid_impl(
-   unsigned int cpuInfo[4],
+   T cpuInfo[4],
    int function_id,
    int subfunction_id
 ){
-    __get_cpuid_max(function_id, cpuInfo);
+    __get_cpuid_max(function_id, (unsigned int*)cpuInfo);
 }
 #else
-void cpuid_impl(unsigned int cpuInfo[4], int f, int sub){
-    __cpuidex(cpuInfo, f, sub);
+template <typename T>
+inline void cpuid_impl(T cpuInfo[4], int f, int sub){
+    __cpuidex((int*)cpuInfo, f, sub);
 }
 #endif
 
@@ -189,7 +193,7 @@ namespace MemScanner {
 		}
 		// CPU support - https://github.com/Mysticial/FeatureDetector/blob/master/src/x86/cpu_x86.cpp#L109
 		bool avx = false, avx2 = false;
-		unsigned int info[4];
+		int info[4];
         cpuid_impl(info, 0, 0);
 		int nIds = info[0];
 
@@ -340,33 +344,45 @@ namespace MemScanner {
 		return nullptr;
 	}
 
+
+
 	template<bool forward>
 	void *
 	MemScanner::findSignatureFast32(const std::vector<unsigned char> &bytes, const std::vector<unsigned char> &mask,
 									uintptr_t rangeStart, uintptr_t rangeEnd) {
 		const int patternSize = (int) mask.size();
-		if (patternSize <= 1 || !forward) return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
+		if (patternSize <= 2 || !forward) return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
 		if (!MemScanner::hasFullAVXSupport()) return this->findSignatureFast8<true>(bytes, mask, rangeStart, rangeEnd);
 		if (rangeStart + std::max((size_t) 32, bytes.size()) > rangeEnd) MEM_UNLIKELY
 			return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
 
 		const __m256i firstByteLaidOut = _mm256_set1_epi8(*reinterpret_cast<const char *>(&bytes[0])); // AVX
+		const __m256i secondByteLaidOut = _mm256_set1_epi8(*reinterpret_cast<const char *>(&bytes[1])); // AVX
+		//const __m256i thirdByteLaidOut = _mm256_set1_epi8(*reinterpret_cast<const char *>(&bytes[2])); // AVX
 
 		const auto *maskStart = mask.data();
 		const auto *bytesStart = bytes.data();
 		const auto end = rangeEnd - std::max(32, patternSize);
 
 		for (uintptr_t pCur = rangeStart; pCur <= end; pCur += 32) {
-			//const __m256i toBeCompared = _mm256_loadu_epi8(reinterpret_cast<__m256i*>(pCur)); // AVX-512, but msvc compiles it to vmovdqu anyways??
 			const __m256i toBeCompared = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(pCur)); // AVX
-			//unsigned int matches = _mm256_cmpeq_epi8_mask(toBeCompared, firstByteLaidOut); // AVX-512
 			const __m256i cmp = _mm256_cmpeq_epi8(toBeCompared, firstByteLaidOut); // AVX2
 			unsigned int matches = _mm256_movemask_epi8(cmp); // AVX2
 
-			while (matches) {
-				unsigned long curBit = 0;
-				_BitScanForward(&curBit, matches);
+			const __m256i cmp2 = _mm256_cmpeq_epi8(toBeCompared, secondByteLaidOut); // AVX2
+			unsigned int matches2 = _mm256_movemask_epi8(cmp2); // AVX2
 
+			matches &= (matches2 >> 1) | (0b1 << 31);
+			if(!matches)
+				continue;
+
+			/*const __m256i cmp3 = _mm256_cmpeq_epi8(toBeCompared, thirdByteLaidOut); // AVX2
+			unsigned int matches3 = _mm256_movemask_epi8(cmp3); // AVX2
+
+			matches &= (matches3 >> 2) | (0b11 << 30);*/
+
+			unsigned long curBit = 0;
+			while(_BitScanForward(&curBit, matches)) {
 				uintptr_t curP = pCur + curBit + 1;
 				int off = 1;
 
