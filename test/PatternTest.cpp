@@ -15,6 +15,10 @@
 #endif
 
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
+
+namespace fs = std::filesystem;
 
 
 void testPatternAtEndOfBuffer(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t allocSize){
@@ -202,6 +206,31 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 	printf("On average %.2fms / scan, %.1fMB/s\n", timePerScan, 1000. / timePerScan * ((double)allocSize / 1000000.));
 }
 
+void testBuffer(MemScanner::MemScanner& scanner, size_t allocSize, unsigned char* alloc, const char* type){
+    testPatternAtEndOfBuffer(scanner, alloc, allocSize);
+    testPatternAtStartOfBuffer(scanner, alloc, allocSize);
+    printf("Tests success!\n");
+
+    printf("Benchmarking single threaded %s performance...\n", type);
+    for(int i = 0; i < 10; i++)
+        benchmarkScan(scanner, alloc, allocSize);
+
+    printf("Benchmarking multi threaded %s performance...\n", type);
+    auto maxThreads = std::clamp(std::thread::hardware_concurrency() / 2, 1u, 64u);
+    unsigned int curNThreads = 2;
+    while(curNThreads <= maxThreads){
+        printf("%d threads:\n", curNThreads);
+        for(int i = 0; i < 5; i++)
+            benchmarkMultiThreadedScan(scanner, alloc, allocSize, curNThreads);
+        if(curNThreads < 6)
+            curNThreads++;
+        else if(curNThreads <= 16)
+            curNThreads += 2;
+        else
+            curNThreads += 4;
+    }
+}
+
 void testSyntheticBuffer(){
 	const size_t allocSize = 0x5000000;// ~83MB
 
@@ -215,28 +244,7 @@ void testSyntheticBuffer(){
 	printf("Allocated!\n");
 
 	MemScanner::MemScanner scanner; // Don't start sig runner thread, we do not need it
-	testPatternAtEndOfBuffer(scanner, alloc, allocSize);
-	testPatternAtStartOfBuffer(scanner, alloc, allocSize);
-	printf("Tests success!\n");
-
-	printf("Benchmarking single threaded synthetic performance...\n");
-	for(int i = 0; i < 10; i++)
-		benchmarkScan(scanner, alloc, allocSize);
-
-	printf("Benchmarking multi threaded synthetic performance...\n");
-	auto maxThreads = std::clamp(std::thread::hardware_concurrency() / 2, 1u, 64u);
-	unsigned int curNThreads = 2;
-	while(curNThreads <= maxThreads){
-		printf("%d threads:\n", curNThreads);
-		for(int i = 0; i < 5; i++)
-			benchmarkMultiThreadedScan(scanner, alloc, allocSize, curNThreads);
-		if(curNThreads < 6)
-			curNThreads++;
-		else if(curNThreads <= 16)
-			curNThreads += 2;
-		else
-			curNThreads += 4;
-	}
+	testBuffer(scanner, allocSize, alloc, "synthetic");
 }
 
 void testSelf(){
@@ -248,31 +256,26 @@ void testSelf(){
 	auto* alloc = (unsigned char*) textSection.first;
 	printf("Self test size: %lld (%llX)\n", allocSize, allocSize);
 
-	printf("Benchmarking single threaded .exe performance...\n");
-	for(int i = 0; i < 10; i++)
-		benchmarkScan(mem.getScanner(), alloc, allocSize);
-
-	printf("Benchmarking multi threaded .exe performance...\n");
-	auto maxThreads = std::clamp(std::thread::hardware_concurrency() / 2, 1u, 64u);
-	int curNThreads = 2;
-	while(curNThreads <= maxThreads){
-		printf("%d threads:\n", curNThreads);
-		for(int i = 0; i < 5; i++)
-			benchmarkMultiThreadedScan(mem.getScanner(), alloc, allocSize, curNThreads);
-		if(curNThreads < 6)
-			curNThreads++;
-		else if(curNThreads <= 16)
-			curNThreads += 2;
-		else
-			curNThreads += 4;
-	}
+	testBuffer(mem.getScanner(), allocSize, alloc, ".exe");
 #else
     printf("Self test is only implemented on windows!");
 #endif
 }
 
-void testSecondary(){
+void testSecondary(const fs::path& path){
+    assert(fs::exists(path));
+    assert(fs::is_regular_file(path));
 
+    std::basic_fstream<unsigned char> inStream(path);
+    if(!inStream.good())
+        throw std::runtime_error("could not open infile");
+    auto file_size = fs::file_size(path);
+    auto buffer = std::make_unique<unsigned char[]>(file_size);
+    inStream.read(buffer.get(), file_size);
+    inStream.close();
+
+    MemScanner::MemScanner scanner{};
+    testBuffer(scanner, file_size, buffer.get(), "secondary exe");
 }
 
 int main(){
@@ -280,6 +283,7 @@ int main(){
 
 	testSyntheticBuffer();
 	testSelf();
+    //testSecondary(fs::path("/"));
 
 	return 0;
 }

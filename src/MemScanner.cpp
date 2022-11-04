@@ -33,7 +33,7 @@ inline unsigned char _BitScanForward(unsigned long* index, unsigned long mask){
 #endif
 #ifdef __clang__
 template <typename T>
-void cpuid_impl(
+inline void cpuid_impl(
    T cpuInfo[4],
    int function_id,
    int subfunction_id [[__maybe_unused__]]
@@ -311,40 +311,38 @@ namespace MemScanner {
 	void *
 	MemScanner::findSignatureFast8(const std::vector<unsigned char> &bytes, const std::vector<unsigned char> &mask,
 								   uintptr_t rangeStart, uintptr_t rangeEnd) {
-		const int patternSize = (int) mask.size();
-		if (!forward || patternSize < 8) return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
-		if (rangeStart + bytes.size() > rangeEnd) MEM_UNLIKELY
-			return nullptr;
+        const int patternSize = (int) mask.size();
+        if (!forward || patternSize < 8) return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
+        if (rangeStart + bytes.size() > rangeEnd) MEM_UNLIKELY
+            return nullptr;
 
-		const auto *maskStart = mask.data();
-		const auto startMask = reinterpret_cast<const uint64_t *>(maskStart)[0];
+        const auto *maskStart = mask.data();
+        const auto startMask = reinterpret_cast<const uint64_t *>(maskStart)[0];
 
-		if (startMask != 0xFFFFFFFFFFFFFFFFU) MEM_LIKELY // 1 Byte scan is more efficient with a mask
-			return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
+        if (startMask != 0xFFFFFFFFFFFFFFFFU) MEM_LIKELY // 1 Byte scan is more efficient with a mask
+            return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
 
-		const auto *bytesStart = bytes.data();
-		const auto startByte = reinterpret_cast<const uint64_t *>(bytesStart)[0];
-		const auto end = rangeEnd - patternSize;
+        const auto *bytesStart = bytes.data();
+        const auto startByte = reinterpret_cast<const uint64_t *>(bytesStart)[0];
+        const auto end = rangeEnd - patternSize;
 
-		for (uintptr_t pCur = rangeStart; pCur <= end; pCur++) {
-			if (*reinterpret_cast<uint64_t *>(pCur) == startByte) MEM_UNLIKELY {
-				uintptr_t curP = pCur + 8;
-				int off = 8;
+        for (uintptr_t pCur = rangeStart; pCur <= end; pCur++) {
+            if (*reinterpret_cast<uint64_t *>(pCur) == startByte) MEM_UNLIKELY {
+                uintptr_t curP = pCur + 8;
+                int off = 8;
 
-				for (; off < patternSize; off++) {
-					if (*(unsigned char *) curP != bytesStart[off] && maskStart[off] != 0) MEM_LIKELY
-						break;
-					curP++;
-				}
-				if (off == patternSize) MEM_UNLIKELY
-					return reinterpret_cast<void *>(pCur);
-			}
-		}
+                for (; off < patternSize; off++) {
+                    if (*(unsigned char *) curP != bytesStart[off] && maskStart[off] != 0) MEM_LIKELY
+                        break;
+                    curP++;
+                }
+                if (off == patternSize)
+                    return reinterpret_cast<void *>(pCur);
+            }
+        }
 
-		return nullptr;
-	}
-
-
+        return nullptr;
+    }
 
 	template<bool forward>
 	void *
