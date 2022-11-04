@@ -57,9 +57,15 @@ namespace MemScanner {
 		};
 
 		struct SearchMapValue {
-			uintptr_t start, end;
+			uintptr_t start = 0, end = 0;
+
+            SearchMapValue() = default;
+            SearchMapValue(const SearchMapValue&) = default;
+            SearchMapValue(SearchMapValue&&) = default;
+            SearchMapValue(uintptr_t start, uintptr_t end) : start(start), end(end) {};
 
 			SearchMapValue &operator=(const SearchMapValue &) = default;
+            SearchMapValue &operator=(SearchMapValue &&) = default;
 		};
 
 		struct NeedSearchObj {

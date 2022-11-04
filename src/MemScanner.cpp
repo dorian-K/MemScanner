@@ -36,8 +36,9 @@ template <typename T>
 void cpuid_impl(
    T cpuInfo[4],
    int function_id,
-   int subfunction_id
+   int subfunction_id [[__maybe_unused__]]
 ){
+
     __get_cpuid_max(function_id, (unsigned int*)cpuInfo);
 }
 #else
@@ -87,7 +88,7 @@ namespace MemScanner {
 									uintptr_t start, uintptr_t end) {
 		if (bytes.size() > 8) return;
 		SearchMapKey key(bytes, mask);
-		SearchMapValue val = {start, end};
+		SearchMapValue val{start, end};
 		std::lock_guard lock(searchMapMutex);
 		if (searchMap.size() > 2000) return;
 		searchMap[key] = val;
@@ -136,16 +137,15 @@ namespace MemScanner {
 	void
 	MemScanner::getOrAddToSearchMap(const std::vector<unsigned char> &bytes, const std::vector<unsigned char> &mask,
 									SearchMapValue &region, bool allowAdd) {
-		SearchMapValue originalRegion = region;
+		SearchMapValue originalRegion(region);
 		originalRegion.end += bytes.size();
 		getOrAddToSearchMap8Byte(bytes.data(), mask.data(), (int) bytes.size(), region, allowAdd, originalRegion);
 		if (bytes.size() <= 8 || region.start >= region.end) return;
 		region.end -= bytes.size();
-
 		// try all the permutations
-		for (int i = 1; i < bytes.size(); i++) {
+		for (unsigned int i = 1; i < bytes.size(); i++) {
 			if (mask[i] == 0) continue;
-			SearchMapValue tempRegion = {region.start, region.end};
+			SearchMapValue tempRegion(region);
 			getOrAddToSearchMap8Byte(bytes.data() + i, mask.data() + i, (int) bytes.size() - i, tempRegion, allowAdd,
 									 originalRegion);
 			region.start = std::max(region.start, tempRegion.start - i);
@@ -236,7 +236,7 @@ namespace MemScanner {
 			regionToBeSearched = iter->second.regionToBeSearched;
 		}
 
-		SearchMapValue val = {regionToBeSearched.start, regionToBeSearched.end - key.numBytesUsed};
+		SearchMapValue val{regionToBeSearched.start, regionToBeSearched.end - key.numBytesUsed};
 		std::vector<unsigned char> bytes(key.bytes, &key.bytes[key.numBytesUsed]);
 		std::vector<unsigned char> mask(key.mask, &key.mask[key.numBytesUsed]);
 		getOrAddToSearchMap(bytes, mask, val, false);
@@ -444,7 +444,7 @@ namespace MemScanner {
 
 		if (patternMask.empty()) throw std::runtime_error("empty signature after sanitization");
 
-		SearchMapValue val = {start, end - patternBytes.size()};
+		SearchMapValue val{start, end - patternBytes.size()};
 		if (enableCache)
 			this->getOrAddToSearchMap(patternBytes, patternMask, val, allowAddToCache);
 		else

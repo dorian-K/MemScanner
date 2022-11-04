@@ -1,7 +1,7 @@
 #include <iostream>
 #include <random>
 #include <MemScanner/MemScanner.h>
-#include <MemScanner/Mem.h>
+
 #ifdef NDEBUG
 #undef NDEBUG
 #include <cassert>
@@ -116,11 +116,11 @@ void benchmarkScan(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t
 
 	assert(useful == 0);
 	auto end = std::chrono::high_resolution_clock::now();
-	double timePerScan = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / (double)i / 1000;
-	printf("On average %.2fms / scan, %.1fMB/s\n", timePerScan, 1000. / timePerScan * (allocSize / 1000000.));
+	double timePerScan = (double)std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / (double)i / 1000;
+	printf("On average %.2fms / scan, %.1fMB/s\n", timePerScan, 1000. / timePerScan * ((double)allocSize / 1000000.));
 }
 
-void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t allocSize, int numThreads){
+void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t allocSize, unsigned int numThreads){
 	const char* impossibleSig = "01 02 03 04 05 06 07 08 09 10 11 12";
 	int numBytes = 12;
 	scanner.evictCache();
@@ -132,15 +132,15 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 	std::vector<std::thread> trs;
 	std::condition_variable cv;
 	std::mutex mtx;
-	int numWaitingThreads = 0;
-	int curIter = 0;
-	std::vector<int> numScanned{}, wakeupSignal{};
-	for(int i = 0; i < numThreads; i++){
+	unsigned int numWaitingThreads = 0;
+	unsigned int curIter = 0;
+	std::vector<unsigned int> numScanned{}, wakeupSignal{};
+	for(unsigned int i = 0; i < numThreads; i++){
 		numScanned.push_back(0);
 		wakeupSignal.push_back(0);
 	}
 
-	uint64_t numIters = 0x500000000 / allocSize;
+	unsigned int numIters = 0x500000000 / allocSize;
 
 	auto doStuff = [&](uintptr_t from, uintptr_t to, int index){
 		while(true){
@@ -152,7 +152,7 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 			numWaitingThreads++;
 			if(numWaitingThreads == numThreads){
 				numWaitingThreads = 0;
-				for(int i = 0; i <  numThreads; i++)
+				for(unsigned int i = 0; i <  numThreads; i++)
 					wakeupSignal[i] = 1;
 				curIter++;
 				cv.notify_all();
@@ -172,25 +172,25 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 	auto bytesPerSplit = allocSize / numThreads;
 	assert(bytesPerSplit - numBytes >= 0);
 	//printf("%llX - %llx / %llX\n", &alloc[0], &alloc[allocSize], bytesPerSplit);
-	for(int t = 0; t < numThreads; t++){
+	for(unsigned int t = 0; t < numThreads; t++){
 		auto begin = t == 0 ? alloc : &alloc[bytesPerSplit * t - numBytes];
 		auto end = t == numThreads - 1 ? &alloc[allocSize] : &alloc[bytesPerSplit * (t + 1)];
 
 		//printf("%d: %llX - %llx\n", t, begin, end);
 		trs.emplace_back(doStuff, (uintptr_t) begin, (uintptr_t) end, t);
 	}
-	assert(trs.size() == numThreads);
+	assert(trs.size() == (size_t)numThreads);
 
 	for(std::thread& t : trs)
 		if(t.joinable())
 			t.join();
 
 	if(numScanned[0] != numIters){
-		printf("numScanned[0] != numIters: %d != %lld\n", numScanned[0], numIters);
+		printf("numScanned[0] != numIters: %d != %d\n", numScanned[0], numIters);
 		assert(false);
 	}
 
-	for(int i = 0; i < numThreads - 1; i++){
+	for(unsigned int i = 0; i < numThreads - 1; i++){
 		if(numScanned[i] != numScanned[i+1]){
 			printf("numScanned[i] == numScanned[i+1]: %d != %d, i=%d\n", numScanned[i], numScanned[i+1], i);
 			assert(false);
@@ -198,8 +198,8 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 	}
 
 	auto end = std::chrono::high_resolution_clock::now();
-	double timePerScan = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / (double)numIters / 1000;
-	printf("On average %.2fms / scan, %.1fMB/s\n", timePerScan, 1000. / timePerScan * (allocSize / 1000000.));
+	double timePerScan = (double)std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / (double)numIters / 1000;
+	printf("On average %.2fms / scan, %.1fMB/s\n", timePerScan, 1000. / timePerScan * ((double)allocSize / 1000000.));
 }
 
 void testSyntheticBuffer(){
@@ -210,7 +210,7 @@ void testSyntheticBuffer(){
 	std::default_random_engine generator(123); // predictable seed
 	std::uniform_int_distribution<uint64_t> distribution(0,0xFFFFFFFFFFFFFFFF);
 
-	for(int i = 0; i < allocSize; i+=8)
+	for(size_t i = 0; i < allocSize; i+=8)
 		*reinterpret_cast<uint64_t*>(&alloc[i]) = distribution(generator);
 	printf("Allocated!\n");
 
@@ -225,7 +225,7 @@ void testSyntheticBuffer(){
 
 	printf("Benchmarking multi threaded synthetic performance...\n");
 	auto maxThreads = std::clamp(std::thread::hardware_concurrency() / 2, 1u, 64u);
-	int curNThreads = 2;
+	unsigned int curNThreads = 2;
 	while(curNThreads <= maxThreads){
 		printf("%d threads:\n", curNThreads);
 		for(int i = 0; i < 5; i++)
@@ -240,6 +240,7 @@ void testSyntheticBuffer(){
 }
 
 void testSelf(){
+#ifdef _WIN32
 	MemScanner::Mem mem{};
 	auto exeHandle = (void *) GetModuleHandleA(nullptr);
 	auto textSection = MemScanner::Mem::GetSectionRange(exeHandle, ".text");
@@ -265,6 +266,9 @@ void testSelf(){
 		else
 			curNThreads += 4;
 	}
+#else
+    printf("Self test is only implemented on windows!");
+#endif
 }
 
 void testSecondary(){

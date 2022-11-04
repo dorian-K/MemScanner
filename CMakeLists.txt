@@ -11,7 +11,7 @@ set_property(TARGET MemScanner PROPERTY
         MSVC_RUNTIME_LIBRARY ${MEM_SCANNER_RUNTIME_LIBRARY})
 endif()
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    add_compile_options(-fms-extensions -mxsave -mavx -mavx2 -mbmi)
+    add_compile_options(-fms-extensions -mxsave -mavx -mavx2 -mbmi -Wall -Wextra)
 endif()
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     add_compile_options(-fms-extensions -mxsave -mavx -mavx2 -mbmi)
