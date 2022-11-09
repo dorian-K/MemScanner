@@ -1,6 +1,7 @@
 #include <iostream>
 #include <random>
 #include <MemScanner/MemScanner.h>
+#include <cstring>
 
 #ifdef NDEBUG
 #undef NDEBUG
@@ -207,10 +208,14 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 	printf("On average %.2fms / scan, %.1fMB/s\n", timePerScan, 1000. / timePerScan * ((double)allocSize / 1000000.));
 }
 
-void testBuffer(MemScanner::MemScanner& scanner, size_t allocSize, unsigned char* alloc, const char* type){
+void testBuffer(MemScanner::MemScanner& scanner, size_t allocSize, unsigned char* alloc){
     testPatternAtEndOfBuffer(scanner, alloc, allocSize);
     testPatternAtStartOfBuffer(scanner, alloc, allocSize);
     printf("Tests success!\n");
+
+}
+
+void benchmarkBuffer(MemScanner::MemScanner& scanner, size_t allocSize, unsigned char* alloc, const char* type){
 
     printf("Benchmarking single threaded %s performance...\n", type);
     for(int i = 0; i < 10; i++)
@@ -232,7 +237,7 @@ void testBuffer(MemScanner::MemScanner& scanner, size_t allocSize, unsigned char
     }
 }
 
-void testSyntheticBuffer(){
+void testSyntheticBuffer(bool doBenchmark = true){
 	const size_t allocSize = 0x5000000;// ~83MB
 
 	auto* alloc = new unsigned char[allocSize];
@@ -245,7 +250,9 @@ void testSyntheticBuffer(){
 	printf("Allocated!\n");
 
 	MemScanner::MemScanner scanner; // Don't start sig runner thread, we do not need it
-	testBuffer(scanner, allocSize, alloc, "synthetic");
+	testBuffer(scanner, allocSize, alloc);
+    if(doBenchmark)
+        benchmarkBuffer(scanner, allocSize, alloc, "synthetic");
 }
 
 void testSelf(){
@@ -257,7 +264,7 @@ void testSelf(){
 	auto* alloc = (unsigned char*) textSection.first;
 	printf("Self test size: %lld (%llX)\n", allocSize, allocSize);
 
-	testBuffer(mem.getScanner(), allocSize, alloc, ".exe");
+	benchmarkBuffer(mem.getScanner(), allocSize, alloc, ".exe");
 #else
     printf("Self test is only implemented on windows!");
 #endif
@@ -276,14 +283,24 @@ void testSecondary(const fs::path& path){
     inStream.close();
 
     MemScanner::MemScanner scanner{};
-    testBuffer(scanner, file_size, buffer.get(), "secondary exe");
+    benchmarkBuffer(scanner, file_size, buffer.get(), "secondary exe");
 }
 
-int main(){
+int main(int argc, char *argv[]){
     printf("AVX: %s\n", MemScanner::MemScanner::hasFullAVXSupport() ? "enabled" : "unsupported");
 
-	testSyntheticBuffer();
-	testSelf();
+
+    bool enableBenchmark = true;
+    if(argc >= 2){
+        for(int i = 0; i < argc; i++){
+            if(strcmp(argv[i], "nobenchmark") == 0)
+                enableBenchmark = false;
+        }
+    }
+
+	testSyntheticBuffer(enableBenchmark);
+    if(enableBenchmark)
+	    testSelf();
     //testSecondary(fs::path("/"));
 
 	return 0;
