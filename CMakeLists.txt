@@ -8,6 +8,8 @@ if (NOT (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
     add_compile_options(-fms-extensions -mxsave -mavx -mavx2 -mbmi)
 endif()
 
+find_package(Threads REQUIRED)
+
 add_library(MemScanner src/MemScanner.cpp include/MemScanner/MemScanner.h src/Mem.cpp include/MemScanner/Mem.h)
 target_include_directories(MemScanner PUBLIC include/)
 
@@ -22,6 +24,7 @@ endif()
 add_executable(PatternTest test/PatternTest.cpp src/MemScanner.cpp include/MemScanner/MemScanner.h src/Mem.cpp include/MemScanner/Mem.h)
 add_test(NAME PatternTest COMMAND PatternTest nobenchmark)
 target_include_directories(PatternTest PRIVATE include/)
+target_link_libraries(PatternTest Threads::Threads)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     target_compile_options(PatternTest PRIVATE /Zi)

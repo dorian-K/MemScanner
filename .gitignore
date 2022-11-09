@@ -81,3 +81,5 @@ cmake-build-release/
 cmake-build-relwithdebug/
 
 httpRequests/
+
+Testing/
