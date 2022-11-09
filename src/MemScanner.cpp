@@ -30,18 +30,16 @@ inline unsigned char _BitScanForward(unsigned long* index, unsigned long mask){
     return false;
 }
 
-#endif
-#ifdef __clang__
-template <typename T>
 inline void cpuid_impl(
-   T cpuInfo[4],
-   int function_id,
-   int subfunction_id [[__maybe_unused__]]
-){
-
-    __get_cpuid_max(function_id, (unsigned int*)cpuInfo);
+        unsigned int cpuInfo[4],
+        unsigned int function_id,
+        int subfunction_id [[__maybe_unused__]]
+) {
+    __get_cpuid(function_id, &cpuInfo[0], &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
 }
+
 #else
+
 template <typename T>
 inline void cpuid_impl(T cpuInfo[4], int f, int sub){
     __cpuidex((int*)cpuInfo, f, sub);
@@ -180,10 +178,6 @@ namespace MemScanner {
 		static int cached = -1;
 		if (cached != -1)
 			return cached == 1;
-#ifdef __GNUC__
-        cached = __builtin_cpu_supports("avx2") && __builtin_cpu_supports("avx");
-        return cached == 1;
-#endif
 
 		// OS Support
 		if (!hasAvxOSSupport()) {
@@ -193,7 +187,7 @@ namespace MemScanner {
 		}
 		// CPU support - https://github.com/Mysticial/FeatureDetector/blob/master/src/x86/cpu_x86.cpp#L109
 		bool avx = false, avx2 = false;
-		int info[4];
+		unsigned int info[4];
         cpuid_impl(info, 0, 0);
 		int nIds = info[0];
 
