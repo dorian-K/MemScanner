@@ -81,11 +81,7 @@ cmake-build-release/
 cmake-build-relwithdebug/
 cmake-build-debugcross/
 
-<<<<<<< Updated upstream
 httpRequests/
-=======
-httpRequests/
-
 Testing/
 build/
->>>>>>> Stashed changes
+
