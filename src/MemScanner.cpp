@@ -18,10 +18,21 @@
 #include <immintrin.h>
 #include <array>
 
-#ifdef __GNUC__
+#ifdef _WIN32
+#include <intrin.h>
+inline unsigned char bitscanforward(unsigned long* index, unsigned long mask){
+    return _BitScanForward(index, mask);
+}
+
+template <typename T>
+inline void cpuid_impl(T cpuInfo[4], int f, int sub){
+    __cpuidex((int*)cpuInfo, f, sub);
+}
+
+#elif __GNUC__
 #include <cpuid.h>
 
-inline unsigned char _BitScanForward(unsigned long* index, unsigned long mask){
+inline unsigned char bitscanforward(unsigned long* index, unsigned long mask){
     auto bt = __builtin_ffsll(mask);
     if(bt != 0){
         *index = bt - 1;
@@ -380,7 +391,7 @@ namespace MemScanner {
 			matches &= (matches3 >> 2) | (0b11 << 30);*/
 
 			unsigned long curBit = 0;
-			while(_BitScanForward(&curBit, matches)) {
+			while(bitscanforward(&curBit, matches)) {
 				uintptr_t curP = pCur + curBit + 1;
 				int off = 1;
 
