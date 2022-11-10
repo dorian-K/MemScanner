@@ -18,6 +18,9 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+    - name: Set up MinGW
+      uses: egor-tensin/setup-mingw@v2
+      if: matrix.os == 'ubuntu-latest'
     - uses: actions/checkout@v3
 
     - name: Configure CMake
