@@ -111,8 +111,14 @@ namespace MemScanner {
 								 uintptr_t start, uintptr_t end);
 
 		template<bool forward>
-		void *findSignatureFast32(const std::vector<unsigned char> &bytes, const std::vector<unsigned char> &mask,
+		void *findSignatureFastAVX2(const std::vector<unsigned char> &bytes, const std::vector<unsigned char> &mask,
 								  uintptr_t start, uintptr_t end);
+
+	protected:
+		template<bool forward>
+		void *findSignatureFastAVX2_SecondByteMasked(const std::vector<unsigned char> &bytes, const std::vector<unsigned char> &mask,
+								  uintptr_t start, uintptr_t end);
+	public:
 
 		template<bool forward>
 		// start inclusive, end exclusive
