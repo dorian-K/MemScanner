@@ -15,18 +15,18 @@ namespace MemScanner {
 	public:
 		struct SearchMapKey {
 			union {
-				unsigned char bytes[8];
+				uint8_t bytes[8];
 				uint64_t bytesHash = 0;
 			};
 			union {
-				unsigned char mask[8];
+				uint8_t mask[8];
                 uint64_t maskHash = 0;
 			};
-			unsigned char numBytesUsed{};
+			uint8_t numBytesUsed{};
 
 			SearchMapKey() = default;
 
-			SearchMapKey(const unsigned char *byt, const unsigned char *mas, int num) {
+			SearchMapKey(const uint8_t *byt, const uint8_t *mas, int num) {
 				numBytesUsed = std::min(num, 8);
 				for (int i = 0; i < numBytesUsed; i++) {
 					bytes[i] = byt[i];
@@ -35,7 +35,7 @@ namespace MemScanner {
 				bytesHash &= maskHash;
 			}
 
-			SearchMapKey(const std::vector<unsigned char> &byt, const std::vector<unsigned char> &mas) {
+			SearchMapKey(const std::vector<uint8_t> &byt, const std::vector<uint8_t> &mas) {
 				numBytesUsed = std::min((int) byt.size(), 8);
 				for (int i = 0; i < numBytesUsed; i++) {
 					bytes[i] = byt[i];
@@ -88,16 +88,16 @@ namespace MemScanner {
 		std::multimap<int, NeedSearchObj> needSearchMap;
 
 		void
-		addToSearchMap(const std::vector<unsigned char> &bytes, const std::vector<unsigned char> &mask, uintptr_t start,
+		addToSearchMap(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t start,
 					   uintptr_t end);
 
 		bool
 		findInSearchMap(const SearchMapKey &key, SearchMapValue &region, bool allowAdd, SearchMapValue &originalRegion);
 
-		void getOrAddToSearchMap8Byte(const unsigned char *bytes, const unsigned char *mask, int size,
+		void getOrAddToSearchMap8Byte(const uint8_t *bytes, const uint8_t *mask, int size,
 									  SearchMapValue &region, bool allowAdd, SearchMapValue &originalRegion);
 
-		void getOrAddToSearchMap(const std::vector<unsigned char> &bytes, const std::vector<unsigned char> &mask,
+		void getOrAddToSearchMap(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask,
 								 SearchMapValue &region, bool allowAdd);
 
 		static void SigRunner(MemScanner *me);
@@ -110,27 +110,32 @@ namespace MemScanner {
 		bool doSearchSingleMapKey();
 
 		template<bool forward>
-		void *findSignatureFast1(const std::vector<unsigned char> &bytes, const std::vector<unsigned char> &mask,
+		void *findSignatureFast1(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask,
 								 uintptr_t start, uintptr_t end);
 
 		template<bool forward>
-		void *findSignatureFast8(const std::vector<unsigned char> &bytes, const std::vector<unsigned char> &mask,
+		void *findSignatureFast8(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask,
 								 uintptr_t start, uintptr_t end);
 
 		template<bool forward>
-		void *findSignatureFastAVX2(const std::vector<unsigned char> &bytes, const std::vector<unsigned char> &mask,
+		void *findSignatureFastAVX2(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask,
 								  uintptr_t start, uintptr_t end);
 
 	protected:
 		template<bool forward>
-		void *findSignatureFastAVX2_SecondByteMasked(const std::vector<unsigned char> &bytes, const std::vector<unsigned char> &mask,
+		void *findSignatureFastAVX2_SecondByteMasked(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask,
 								  uintptr_t start, uintptr_t end);
 	public:
+		// start inclusive, end exclusive
+		template<bool forward>
+		void *findSignatureInRange(const std::vector<uint8_t>& bytes, const std::vector<uint8_t>& mask,
+								   uintptr_t start, uintptr_t end,
+								   bool enableCache = true,bool allowAddToCache = true);
 
 		template<bool forward>
-		// start inclusive, end exclusive
-		void *findSignatureInRange(const char *szSignature, uintptr_t start, uintptr_t end, bool enableCache = true,
-								   bool allowAddToCache = true);
+		void *findSignatureInRange(const char *szSignature,
+								   uintptr_t start, uintptr_t end,
+								   bool enableCache = true, bool allowAddToCache = true);
 
 		void startSigRunnerThread();
 

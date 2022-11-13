@@ -93,7 +93,7 @@ inline void cpuid_impl(T cpuInfo[4], int f, int sub){
 
 namespace MemScanner {
 
-	void MemScanner::addToSearchMap(const std::vector<unsigned char> &bytes, const std::vector<unsigned char> &mask,
+	void MemScanner::addToSearchMap(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask,
 									uintptr_t start, uintptr_t end) {
 		if (bytes.size() > 8) return;
 		SearchMapKey key(bytes, mask);
@@ -128,7 +128,7 @@ namespace MemScanner {
 		return true;
 	}
 
-	void MemScanner::getOrAddToSearchMap8Byte(const unsigned char *bytes, const unsigned char *mask, int size,
+	void MemScanner::getOrAddToSearchMap8Byte(const uint8_t *bytes, const uint8_t *mask, int size,
 											  SearchMapValue &region, bool allowAdd, SearchMapValue &originalRegion) {
 		// iprnt("prev region: {:X} - {:X}", region.start, region.end);
 
@@ -144,7 +144,7 @@ namespace MemScanner {
 	}
 
 	void
-	MemScanner::getOrAddToSearchMap(const std::vector<unsigned char> &bytes, const std::vector<unsigned char> &mask,
+	MemScanner::getOrAddToSearchMap(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask,
 									SearchMapValue &region, bool allowAdd) {
 		SearchMapValue originalRegion(region);
 		originalRegion.end += bytes.size();
@@ -242,8 +242,8 @@ namespace MemScanner {
 		}
 
 		SearchMapValue val{regionToBeSearched.start, regionToBeSearched.end - key.numBytesUsed};
-		std::vector<unsigned char> bytes(key.bytes, &key.bytes[key.numBytesUsed]);
-		std::vector<unsigned char> mask(key.mask, &key.mask[key.numBytesUsed]);
+		std::vector<uint8_t> bytes(key.bytes, &key.bytes[key.numBytesUsed]);
+		std::vector<uint8_t> mask(key.mask, &key.mask[key.numBytesUsed]);
 		getOrAddToSearchMap(bytes, mask, val, false);
 		if (val.start > val.end) goto end;
 
@@ -274,7 +274,7 @@ namespace MemScanner {
 
 	template<bool forward>
 	void *
-	MemScanner::findSignatureFast1(const std::vector<unsigned char> &bytes, const std::vector<unsigned char> &mask,
+	MemScanner::findSignatureFast1(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask,
 								   uintptr_t rangeStart,
 								   uintptr_t rangeEnd) {
 		const int patternSize = (int) mask.size();
@@ -285,8 +285,8 @@ namespace MemScanner {
 			return nullptr;
 		auto *maskStart = mask.data();
 		auto *bytesStart = bytes.data();
-		auto startByte = reinterpret_cast<const unsigned char *>(bytesStart)[0];
-		auto startMask = reinterpret_cast<const unsigned char *>(maskStart)[0];
+		auto startByte = reinterpret_cast<const uint8_t *>(bytesStart)[0];
+		auto startMask = reinterpret_cast<const uint8_t *>(maskStart)[0];
 		if (startMask == 0)
 			MEM_UNLIKELY
             throw std::runtime_error("invalid pattern");
@@ -295,12 +295,12 @@ namespace MemScanner {
 		for (uintptr_t pCur = forward ? rangeStart : end; forward ? (pCur <= end) : (pCur >=
 																					 rangeStart); pCur += (forward ? 1
 																												   : -1)) {
-			if (*reinterpret_cast<unsigned char *>(pCur) == startByte) MEM_UNLIKELY {
+			if (*reinterpret_cast<uint8_t *>(pCur) == startByte) MEM_UNLIKELY {
 				uintptr_t curP = pCur + 1;
 				int off = 1;
 
 				for (; off < patternSize; off++) {
-					if (*(unsigned char *) curP != bytesStart[off] && maskStart[off] != 0) MEM_LIKELY
+					if (*(uint8_t *) curP != bytesStart[off] && maskStart[off] != 0) MEM_LIKELY
 						break;
 					curP++;
 				}
@@ -314,7 +314,7 @@ namespace MemScanner {
 
 	template<bool forward>
 	void *
-	MemScanner::findSignatureFast8(const std::vector<unsigned char> &bytes, const std::vector<unsigned char> &mask,
+	MemScanner::findSignatureFast8(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask,
 								   uintptr_t rangeStart, uintptr_t rangeEnd) {
         const int patternSize = (int) mask.size();
         if (!forward || patternSize < 8) return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
@@ -336,7 +336,7 @@ namespace MemScanner {
                 uintptr_t curP = pCur + 8;
                 int off = 8;
                 for (; off < patternSize; off++) {
-                    if (*(unsigned char *) curP != bytesStart[off] && maskStart[off] != 0) MEM_LIKELY
+                    if (*(uint8_t *) curP != bytesStart[off] && maskStart[off] != 0) MEM_LIKELY
                         break;
                     curP++;
                 }
@@ -350,7 +350,7 @@ namespace MemScanner {
 
 	template<bool forward>
 	void *
-	MemScanner::findSignatureFastAVX2(const std::vector<unsigned char> &bytes, const std::vector<unsigned char> &mask,
+	MemScanner::findSignatureFastAVX2(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask,
 									uintptr_t rangeStart, uintptr_t rangeEnd) {
 		const int patternSize = (int) mask.size();
 		if (patternSize <= 2 || !forward) return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
@@ -392,7 +392,7 @@ namespace MemScanner {
 				int off = 1;
 
 				for (; off < patternSize; off++) {
-					if (*(unsigned char *) curP != bytesStart[off] && maskStart[off] != 0) MEM_LIKELY
+					if (*(uint8_t *) curP != bytesStart[off] && maskStart[off] != 0) MEM_LIKELY
 						break;
 					curP++;
 				}
@@ -411,7 +411,7 @@ namespace MemScanner {
 
 	template<bool forward>
 	void *
-	MemScanner::findSignatureFastAVX2_SecondByteMasked(const std::vector<unsigned char> &bytes, const std::vector<unsigned char> &mask,
+	MemScanner::findSignatureFastAVX2_SecondByteMasked(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask,
 									  uintptr_t rangeStart, uintptr_t rangeEnd) {
 		const int patternSize = (int) mask.size();
 		// we don't need any checks, they were already done in the real avx2 impl
@@ -435,7 +435,7 @@ namespace MemScanner {
 				int off = 1;
 
 				for (; off < patternSize; off++) {
-					if (*(unsigned char *) curP != bytesStart[off] && maskStart[off] != 0) MEM_LIKELY
+					if (*(uint8_t *) curP != bytesStart[off] && maskStart[off] != 0) MEM_LIKELY
 						break;
 					curP++;
 				}
@@ -453,11 +453,26 @@ namespace MemScanner {
 	}
 
 	template<bool forward>
+	void *MemScanner::findSignatureInRange(const std::vector<uint8_t>& patternBytes, const std::vector<uint8_t>& patternMask, uintptr_t start, uintptr_t end, bool enableCache,
+										   bool allowAddToCache) {
+
+		if (patternBytes.empty() || patternBytes.size() != patternMask.size()) throw std::runtime_error("invalid signature size");
+
+		SearchMapValue val{start, end - patternBytes.size()};
+		if (enableCache)
+			this->getOrAddToSearchMap(patternBytes, patternMask, val, allowAddToCache);
+		else
+			val.end += patternBytes.size();
+
+		return this->findSignatureFastAVX2<forward>(patternBytes, patternMask, val.start, val.end);
+	}
+
+	template<bool forward>
 	void *MemScanner::findSignatureInRange(const char *szSignature, uintptr_t start, uintptr_t end, bool enableCache,
 										   bool allowAddToCache) {
-		std::vector<unsigned char> patternBytes;
+		std::vector<uint8_t> patternBytes;
 		patternBytes.reserve(strlen(szSignature) / 3 + 1);
-		std::vector<unsigned char> patternMask;
+		std::vector<uint8_t> patternMask;
 		patternMask.reserve(strlen(szSignature) / 3 + 1);
 
 		for (const char *patIt = szSignature; *patIt;) {
@@ -479,7 +494,7 @@ namespace MemScanner {
 			if (!*(patIt + 1))
 				throw std::runtime_error("malformed signature");     // wat (second character of hex string is null???)
 			auto byt = strtoul(patIt, nullptr, 16);
-			patternBytes.push_back((unsigned char) (byt & 0xFF));
+			patternBytes.push_back((uint8_t) (byt & 0xFF));
 			patternMask.push_back(0xFF);
 
 			patIt += 2;
@@ -492,13 +507,7 @@ namespace MemScanner {
 
 		if (patternMask.empty()) throw std::runtime_error("empty signature after sanitization");
 
-		SearchMapValue val{start, end - patternBytes.size()};
-		if (enableCache)
-			this->getOrAddToSearchMap(patternBytes, patternMask, val, allowAddToCache);
-		else
-			val.end += patternBytes.size();
-
-		return this->findSignatureFastAVX2<forward>(patternBytes, patternMask, val.start, val.end);
+		return this->findSignatureInRange<forward>(patternBytes, patternMask, start, end, enableCache, allowAddToCache);
 	}
 
 	template void *MemScanner::findSignatureInRange<true>(const char *, uintptr_t, uintptr_t, bool, bool);
