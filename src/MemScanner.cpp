@@ -430,7 +430,7 @@ namespace MemScanner {
 				continue;
 
 			unsigned long curBit = 0;
-			while(_BitScanForward(&curBit, matches)) {
+			while(bitscanforward(&curBit, matches)) {
 				uintptr_t curP = pCur + curBit + 1;
 				int off = 1;
 
