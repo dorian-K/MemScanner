@@ -69,13 +69,13 @@ namespace MemScanner {
 	}
 
 	template<bool forward>
-	void *Mem::findSignature(const char *szSignature, bool enableCache, void *module, const char *section) {
+	void *Mem::FindSignature(const char *szSignature, bool enableCache, void *module, const char *section) {
 		auto range = Mem::ResolveModuleSection(module, section);
 		return myScanner.findSignatureInRange<forward>(szSignature, range.first, range.second, enableCache);
 	}
 
 	template<bool forward>
-	void *Mem::findSignature(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, bool enableCache,
+	void *Mem::FindSignature(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, bool enableCache,
 							 void *module, const char *section) {
 		auto range = Mem::ResolveModuleSection(module, section);
 		return myScanner.findSignatureInRange<forward>(bytes, mask, range.first, range.second, enableCache);
@@ -107,7 +107,11 @@ namespace MemScanner {
 #endif
 
 
-	template void *Mem::findSignature<true>(const char *, bool, void *, const char *);
+	template void *Mem::FindSignature<true>(const char *, bool, void *, const char *);
 
-	template void *Mem::findSignature<false>(const char *, bool, void *, const char *);
+	template void *Mem::FindSignature<false>(const char *, bool, void *, const char *);
+
+	template void *Mem::FindSignature<true>(const std::vector<uint8_t>&, const std::vector<uint8_t>&, bool, void *, const char *);
+
+	template void *Mem::FindSignature<false>(const std::vector<uint8_t>&, const std::vector<uint8_t>&, bool, void *, const char *);
 }

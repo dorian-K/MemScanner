@@ -22,9 +22,9 @@ namespace MemScanner {
 
 		static std::pair<uint64_t, uint64_t> GetSectionRange(void* module, const char* name);
 		template <bool forward>
-		void* findSignature(const char* szSignature, bool enableCache = true, void* module = nullptr, const char* section = ".text");
+		void* FindSignature(const char* szSignature, bool enableCache = true, void* module = nullptr, const char* section = ".text");
 		template <bool forward>
-		void* findSignature(const std::vector<uint8_t>& bytes, const std::vector<uint8_t>& mask,
+		void* FindSignature(const std::vector<uint8_t>& bytes, const std::vector<uint8_t>& mask,
 							bool enableCache = true, void* module = nullptr, const char* section = ".text");
 	};
 };
