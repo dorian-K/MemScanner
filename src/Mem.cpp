@@ -70,12 +70,13 @@ namespace MemScanner {
 		return myScanner.findSignatureInRange<forward>(szSignature, rangeStart, rangeEnd, enableCache);
 	}
 #else
-    std::pair<uint64_t, uint64_t> Mem::GetSectionRange(void *module, const char *name) {
+    std::pair<uint64_t, uint64_t> Mem::GetSectionRange(void *module [[maybe_unused]], const char *name [[maybe_unused]]) {
         throw std::runtime_error("not implemented");
         return {};
     }
     template<bool forward>
-    void *Mem::findSignature(const char *szSignature, bool enableCache, void *module, const char *section) {
+    void *Mem::findSignature(const char *szSignature [[maybe_unused]], bool enableCache [[maybe_unused]],
+                             void *module [[maybe_unused]], const char *section [[maybe_unused]]) {
         throw std::runtime_error("not implemented");
         return {};
     }

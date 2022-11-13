@@ -1,7 +1,8 @@
 #include <iostream>
 #include <random>
 #include <MemScanner/MemScanner.h>
-#include <MemScanner/Mem.h>
+#include <cstring>
+
 #ifdef NDEBUG
 #undef NDEBUG
 #include <cassert>
@@ -12,9 +13,14 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <MemScanner/Mem.h>
 #endif
 
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
+
+namespace fs = std::filesystem;
 
 
 void testPatternAtEndOfBuffer(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t allocSize){
@@ -116,11 +122,11 @@ void benchmarkScan(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t
 
 	assert(useful == 0);
 	auto end = std::chrono::high_resolution_clock::now();
-	double timePerScan = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / (double)i / 1000;
-	printf("On average %.2fms / scan, %.1fMB/s\n", timePerScan, 1000. / timePerScan * (allocSize / 1000000.));
+	double timePerScan = (double)std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / (double)i / 1000;
+	printf("On average %.2fms / scan, %.1fMB/s\n", timePerScan, 1000. / timePerScan * ((double)allocSize / 1000000.));
 }
 
-void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t allocSize, int numThreads){
+void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t allocSize, unsigned int numThreads){
 	const char* impossibleSig = "01 02 03 04 05 06 07 08 09 10 11 12";
 	int numBytes = 12;
 	scanner.evictCache();
@@ -132,15 +138,15 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 	std::vector<std::thread> trs;
 	std::condition_variable cv;
 	std::mutex mtx;
-	int numWaitingThreads = 0;
-	int curIter = 0;
-	std::vector<int> numScanned{}, wakeupSignal{};
-	for(int i = 0; i < numThreads; i++){
+	unsigned int numWaitingThreads = 0;
+	unsigned int curIter = 0;
+	std::vector<unsigned int> numScanned{}, wakeupSignal{};
+	for(unsigned int i = 0; i < numThreads; i++){
 		numScanned.push_back(0);
 		wakeupSignal.push_back(0);
 	}
 
-	uint64_t numIters = 0x500000000 / allocSize;
+	unsigned int numIters = 0x500000000 / allocSize;
 
 	auto doStuff = [&](uintptr_t from, uintptr_t to, int index){
 		while(true){
@@ -152,7 +158,7 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 			numWaitingThreads++;
 			if(numWaitingThreads == numThreads){
 				numWaitingThreads = 0;
-				for(int i = 0; i <  numThreads; i++)
+				for(unsigned int i = 0; i <  numThreads; i++)
 					wakeupSignal[i] = 1;
 				curIter++;
 				cv.notify_all();
@@ -172,25 +178,25 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 	auto bytesPerSplit = allocSize / numThreads;
 	assert(bytesPerSplit - numBytes >= 0);
 	//printf("%llX - %llx / %llX\n", &alloc[0], &alloc[allocSize], bytesPerSplit);
-	for(int t = 0; t < numThreads; t++){
+	for(unsigned int t = 0; t < numThreads; t++){
 		auto begin = t == 0 ? alloc : &alloc[bytesPerSplit * t - numBytes];
 		auto end = t == numThreads - 1 ? &alloc[allocSize] : &alloc[bytesPerSplit * (t + 1)];
 
 		//printf("%d: %llX - %llx\n", t, begin, end);
 		trs.emplace_back(doStuff, (uintptr_t) begin, (uintptr_t) end, t);
 	}
-	assert(trs.size() == numThreads);
+	assert(trs.size() == (size_t)numThreads);
 
 	for(std::thread& t : trs)
 		if(t.joinable())
 			t.join();
 
 	if(numScanned[0] != numIters){
-		printf("numScanned[0] != numIters: %d != %lld\n", numScanned[0], numIters);
+		printf("numScanned[0] != numIters: %d != %d\n", numScanned[0], numIters);
 		assert(false);
 	}
 
-	for(int i = 0; i < numThreads - 1; i++){
+	for(unsigned int i = 0; i < numThreads - 1; i++){
 		if(numScanned[i] != numScanned[i+1]){
 			printf("numScanned[i] == numScanned[i+1]: %d != %d, i=%d\n", numScanned[i], numScanned[i+1], i);
 			assert(false);
@@ -198,11 +204,40 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 	}
 
 	auto end = std::chrono::high_resolution_clock::now();
-	double timePerScan = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / (double)numIters / 1000;
-	printf("On average %.2fms / scan, %.1fMB/s\n", timePerScan, 1000. / timePerScan * (allocSize / 1000000.));
+	double timePerScan = (double)std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / (double)numIters / 1000;
+	printf("On average %.2fms / scan, %.1fMB/s\n", timePerScan, 1000. / timePerScan * ((double)allocSize / 1000000.));
 }
 
-void testSyntheticBuffer(){
+void testBuffer(MemScanner::MemScanner& scanner, size_t allocSize, unsigned char* alloc){
+    testPatternAtEndOfBuffer(scanner, alloc, allocSize);
+    testPatternAtStartOfBuffer(scanner, alloc, allocSize);
+    printf("Tests success!\n");
+
+}
+
+void benchmarkBuffer(MemScanner::MemScanner& scanner, size_t allocSize, unsigned char* alloc, const char* type){
+
+    printf("Benchmarking single threaded %s performance...\n", type);
+    for(int i = 0; i < 10; i++)
+        benchmarkScan(scanner, alloc, allocSize);
+
+    printf("Benchmarking multi threaded %s performance...\n", type);
+    auto maxThreads = std::clamp(std::thread::hardware_concurrency() / 2, 1u, 64u);
+    unsigned int curNThreads = 2;
+    while(curNThreads <= maxThreads){
+        printf("%d threads:\n", curNThreads);
+        for(int i = 0; i < 5; i++)
+            benchmarkMultiThreadedScan(scanner, alloc, allocSize, curNThreads);
+        if(curNThreads < 6)
+            curNThreads++;
+        else if(curNThreads <= 16)
+            curNThreads += 2;
+        else
+            curNThreads += 4;
+    }
+}
+
+void testSyntheticBuffer(bool doBenchmark = true){
 	const size_t allocSize = 0x5000000;// ~83MB
 
 	auto* alloc = new unsigned char[allocSize];
@@ -210,36 +245,18 @@ void testSyntheticBuffer(){
 	std::default_random_engine generator(123); // predictable seed
 	std::uniform_int_distribution<uint64_t> distribution(0,0xFFFFFFFFFFFFFFFF);
 
-	for(int i = 0; i < allocSize; i+=8)
+	for(size_t i = 0; i < allocSize; i+=8)
 		*reinterpret_cast<uint64_t*>(&alloc[i]) = distribution(generator);
 	printf("Allocated!\n");
 
 	MemScanner::MemScanner scanner; // Don't start sig runner thread, we do not need it
-	testPatternAtEndOfBuffer(scanner, alloc, allocSize);
-	testPatternAtStartOfBuffer(scanner, alloc, allocSize);
-	printf("Tests success!\n");
-
-	printf("Benchmarking single threaded synthetic performance...\n");
-	for(int i = 0; i < 10; i++)
-		benchmarkScan(scanner, alloc, allocSize);
-
-	printf("Benchmarking multi threaded synthetic performance...\n");
-	auto maxThreads = std::clamp(std::thread::hardware_concurrency() / 2, 1u, 64u);
-	int curNThreads = 2;
-	while(curNThreads <= maxThreads){
-		printf("%d threads:\n", curNThreads);
-		for(int i = 0; i < 5; i++)
-			benchmarkMultiThreadedScan(scanner, alloc, allocSize, curNThreads);
-		if(curNThreads < 6)
-			curNThreads++;
-		else if(curNThreads <= 16)
-			curNThreads += 2;
-		else
-			curNThreads += 4;
-	}
+	testBuffer(scanner, allocSize, alloc);
+    if(doBenchmark)
+        benchmarkBuffer(scanner, allocSize, alloc, "synthetic");
 }
 
 void testSelf(){
+#ifdef _WIN32
 	MemScanner::Mem mem{};
 	auto exeHandle = (void *) GetModuleHandleA(nullptr);
 	auto textSection = MemScanner::Mem::GetSectionRange(exeHandle, ".text");
@@ -247,35 +264,44 @@ void testSelf(){
 	auto* alloc = (unsigned char*) textSection.first;
 	printf("Self test size: %lld (%llX)\n", allocSize, allocSize);
 
-	printf("Benchmarking single threaded .exe performance...\n");
-	for(int i = 0; i < 10; i++)
-		benchmarkScan(mem.getScanner(), alloc, allocSize);
-
-	printf("Benchmarking multi threaded .exe performance...\n");
-	auto maxThreads = std::clamp(std::thread::hardware_concurrency() / 2, 1u, 64u);
-	int curNThreads = 2;
-	while(curNThreads <= maxThreads){
-		printf("%d threads:\n", curNThreads);
-		for(int i = 0; i < 5; i++)
-			benchmarkMultiThreadedScan(mem.getScanner(), alloc, allocSize, curNThreads);
-		if(curNThreads < 6)
-			curNThreads++;
-		else if(curNThreads <= 16)
-			curNThreads += 2;
-		else
-			curNThreads += 4;
-	}
+	benchmarkBuffer(mem.getScanner(), allocSize, alloc, ".exe");
+#else
+    printf("Self test is only implemented on windows!");
+#endif
 }
 
-void testSecondary(){
+void testSecondary(const fs::path& path){
+    assert(fs::exists(path));
+    assert(fs::is_regular_file(path));
 
+    std::basic_fstream<unsigned char> inStream(path);
+    if(!inStream.good())
+        throw std::runtime_error("could not open infile");
+    auto file_size = fs::file_size(path);
+    auto buffer = std::make_unique<unsigned char[]>(file_size);
+    inStream.read(buffer.get(), file_size);
+    inStream.close();
+
+    MemScanner::MemScanner scanner{};
+    benchmarkBuffer(scanner, file_size, buffer.get(), "secondary exe");
 }
 
-int main(){
+int main(int argc, char *argv[]){
     printf("AVX: %s\n", MemScanner::MemScanner::hasFullAVXSupport() ? "enabled" : "unsupported");
 
-	testSyntheticBuffer();
-	testSelf();
+
+    bool enableBenchmark = true;
+    if(argc >= 2){
+        for(int i = 0; i < argc; i++){
+            if(strcmp(argv[i], "nobenchmark") == 0)
+                enableBenchmark = false;
+        }
+    }
+
+	testSyntheticBuffer(enableBenchmark);
+    if(enableBenchmark)
+	    testSelf();
+    //testSecondary(fs::path("/"));
 
 	return 0;
 }

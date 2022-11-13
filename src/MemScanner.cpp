@@ -18,10 +18,21 @@
 #include <immintrin.h>
 #include <array>
 
-#ifdef __GNUC__
+#ifdef _WIN32
+#include <intrin.h>
+inline unsigned char bitscanforward(unsigned long* index, unsigned long mask){
+    return _BitScanForward(index, mask);
+}
+
+template <typename T>
+inline void cpuid_impl(T cpuInfo[4], int f, int sub){
+    __cpuidex((int*)cpuInfo, f, sub);
+}
+
+#elif __GNUC__
 #include <cpuid.h>
 
-inline unsigned char _BitScanForward(unsigned long* index, unsigned long mask){
+inline unsigned char bitscanforward(unsigned long* index, unsigned long mask){
     auto bt = __builtin_ffsll(mask);
     if(bt != 0){
         *index = bt - 1;
@@ -30,17 +41,16 @@ inline unsigned char _BitScanForward(unsigned long* index, unsigned long mask){
     return false;
 }
 
-#endif
-#ifdef __clang__
-template <typename T>
-void cpuid_impl(
-   T cpuInfo[4],
-   int function_id,
-   int subfunction_id
-){
-    __get_cpuid_max(function_id, (unsigned int*)cpuInfo);
+inline void cpuid_impl(
+        unsigned int cpuInfo[4],
+        unsigned int function_id,
+        int subfunction_id [[__maybe_unused__]]
+) {
+    __get_cpuid(function_id, &cpuInfo[0], &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
 }
+
 #else
+
 template <typename T>
 inline void cpuid_impl(T cpuInfo[4], int f, int sub){
     __cpuidex((int*)cpuInfo, f, sub);
@@ -87,7 +97,7 @@ namespace MemScanner {
 									uintptr_t start, uintptr_t end) {
 		if (bytes.size() > 8) return;
 		SearchMapKey key(bytes, mask);
-		SearchMapValue val = {start, end};
+		SearchMapValue val{start, end};
 		std::lock_guard lock(searchMapMutex);
 		if (searchMap.size() > 2000) return;
 		searchMap[key] = val;
@@ -136,16 +146,15 @@ namespace MemScanner {
 	void
 	MemScanner::getOrAddToSearchMap(const std::vector<unsigned char> &bytes, const std::vector<unsigned char> &mask,
 									SearchMapValue &region, bool allowAdd) {
-		SearchMapValue originalRegion = region;
+		SearchMapValue originalRegion(region);
 		originalRegion.end += bytes.size();
 		getOrAddToSearchMap8Byte(bytes.data(), mask.data(), (int) bytes.size(), region, allowAdd, originalRegion);
 		if (bytes.size() <= 8 || region.start >= region.end) return;
 		region.end -= bytes.size();
-
 		// try all the permutations
-		for (int i = 1; i < bytes.size(); i++) {
+		for (unsigned int i = 1; i < bytes.size(); i++) {
 			if (mask[i] == 0) continue;
-			SearchMapValue tempRegion = {region.start, region.end};
+			SearchMapValue tempRegion(region);
 			getOrAddToSearchMap8Byte(bytes.data() + i, mask.data() + i, (int) bytes.size() - i, tempRegion, allowAdd,
 									 originalRegion);
 			region.start = std::max(region.start, tempRegion.start - i);
@@ -180,10 +189,6 @@ namespace MemScanner {
 		static int cached = -1;
 		if (cached != -1)
 			return cached == 1;
-#ifdef __GNUC__
-        cached = __builtin_cpu_supports("avx2") && __builtin_cpu_supports("avx");
-        return cached == 1;
-#endif
 
 		// OS Support
 		if (!hasAvxOSSupport()) {
@@ -193,7 +198,7 @@ namespace MemScanner {
 		}
 		// CPU support - https://github.com/Mysticial/FeatureDetector/blob/master/src/x86/cpu_x86.cpp#L109
 		bool avx = false, avx2 = false;
-		int info[4];
+		unsigned int info[4];
         cpuid_impl(info, 0, 0);
 		int nIds = info[0];
 
@@ -236,7 +241,7 @@ namespace MemScanner {
 			regionToBeSearched = iter->second.regionToBeSearched;
 		}
 
-		SearchMapValue val = {regionToBeSearched.start, regionToBeSearched.end - key.numBytesUsed};
+		SearchMapValue val{regionToBeSearched.start, regionToBeSearched.end - key.numBytesUsed};
 		std::vector<unsigned char> bytes(key.bytes, &key.bytes[key.numBytesUsed]);
 		std::vector<unsigned char> mask(key.mask, &key.mask[key.numBytesUsed]);
 		getOrAddToSearchMap(bytes, mask, val, false);
@@ -311,38 +316,37 @@ namespace MemScanner {
 	void *
 	MemScanner::findSignatureFast8(const std::vector<unsigned char> &bytes, const std::vector<unsigned char> &mask,
 								   uintptr_t rangeStart, uintptr_t rangeEnd) {
-		const int patternSize = (int) mask.size();
-		if (!forward || patternSize < 8) return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
-		if (rangeStart + bytes.size() > rangeEnd) MEM_UNLIKELY
-			return nullptr;
+        const int patternSize = (int) mask.size();
+        if (!forward || patternSize < 8) return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
+        if (rangeStart + bytes.size() > rangeEnd) MEM_UNLIKELY
+            return nullptr;
 
-		const auto *maskStart = mask.data();
-		const auto startMask = reinterpret_cast<const uint64_t *>(maskStart)[0];
+        const auto *maskStart = mask.data();
+        const auto startMask = reinterpret_cast<const uint64_t *>(maskStart)[0];
 
-		if (startMask != 0xFFFFFFFFFFFFFFFFU) MEM_LIKELY // 1 Byte scan is more efficient with a mask
-			return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
+        if (startMask != 0xFFFFFFFFFFFFFFFFU) MEM_LIKELY // 1 Byte scan is more efficient with a mask
+            return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
 
-		const auto *bytesStart = bytes.data();
-		const auto startByte = reinterpret_cast<const uint64_t *>(bytesStart)[0];
-		const auto end = rangeEnd - patternSize;
+        const auto *bytesStart = bytes.data();
+        const auto startByte = reinterpret_cast<const uint64_t *>(bytesStart)[0];
+        const auto end = rangeEnd - patternSize;
 
-		for (uintptr_t pCur = rangeStart; pCur <= end; pCur++) {
-			if (*reinterpret_cast<uint64_t *>(pCur) == startByte) MEM_UNLIKELY {
-				uintptr_t curP = pCur + 8;
-				int off = 8;
+        for (uintptr_t pCur = rangeStart; pCur <= end; pCur++) {
+            if (*reinterpret_cast<uint64_t *>(pCur) == startByte) MEM_UNLIKELY {
+                uintptr_t curP = pCur + 8;
+                int off = 8;
+                for (; off < patternSize; off++) {
+                    if (*(unsigned char *) curP != bytesStart[off] && maskStart[off] != 0) MEM_LIKELY
+                        break;
+                    curP++;
+                }
+                if (off == patternSize)
+                    return reinterpret_cast<void *>(pCur);
+            }
+        }
 
-				for (; off < patternSize; off++) {
-					if (*(unsigned char *) curP != bytesStart[off] && maskStart[off] != 0) MEM_LIKELY
-						break;
-					curP++;
-				}
-				if (off == patternSize) MEM_UNLIKELY
-					return reinterpret_cast<void *>(pCur);
-			}
-		}
-
-		return nullptr;
-	}
+        return nullptr;
+    }
 
 	template<bool forward>
 	void *
@@ -383,7 +387,7 @@ namespace MemScanner {
 			matches &= (matches3 >> 2) | (0b11 << 30);*/
 
 			unsigned long curBit = 0;
-			while(_BitScanForward(&curBit, matches)) {
+			while(bitscanforward(&curBit, matches)) {
 				uintptr_t curP = pCur + curBit + 1;
 				int off = 1;
 
@@ -488,7 +492,7 @@ namespace MemScanner {
 
 		if (patternMask.empty()) throw std::runtime_error("empty signature after sanitization");
 
-		SearchMapValue val = {start, end - patternBytes.size()};
+		SearchMapValue val{start, end - patternBytes.size()};
 		if (enableCache)
 			this->getOrAddToSearchMap(patternBytes, patternMask, val, allowAddToCache);
 		else
