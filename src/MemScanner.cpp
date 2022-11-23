@@ -467,6 +467,12 @@ namespace MemScanner {
 		return this->findSignatureFastAVX2<forward>(patternBytes, patternMask, val.start, val.end);
 	}
 
+    template void *MemScanner::findSignatureInRange<true>(const std::vector<uint8_t>&, const std::vector<uint8_t>&,
+                                                          uintptr_t, uintptr_t, bool, bool);
+
+    template void *MemScanner::findSignatureInRange<false>(const std::vector<uint8_t>&, const std::vector<uint8_t>&,
+                                                           uintptr_t, uintptr_t, bool, bool);
+
 	template<bool forward>
 	void *MemScanner::findSignatureInRange(const char *szSignature, uintptr_t start, uintptr_t end, bool enableCache,
 										   bool allowAddToCache) {

@@ -4,8 +4,11 @@ project(MemScanner)
 set(CMAKE_CXX_STANDARD 20)
 enable_testing()
 
-if (NOT (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-fms-extensions -mxsave -mavx -mavx2 -mbmi)
+    if (MSVC) # Clang-Cl
+        add_compile_options(/EHsc)
+    endif()
 endif()
 
 find_package(Threads REQUIRED)
