@@ -1,9 +1,11 @@
 #include "MemScanner/Mem.h"
 
+// clang-format off
 #ifdef _WIN32
-#include <psapi.h>
 #include <windows.h>
+#include <psapi.h>
 #endif
+// clang-format on
 
 namespace MemScanner {
 
