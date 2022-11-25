@@ -106,6 +106,7 @@ namespace MemScanner {
 		~MemScanner();
 
 		static bool hasFullAVXSupport();
+		static std::pair<std::vector<uint8_t>, std::vector<uint8_t>> ParseSignature(const char* signature);
 
 		bool doSearchSingleMapKey();
 

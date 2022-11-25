@@ -193,7 +193,6 @@ namespace MemScanner {
 		// OS Support
 		if (!hasAvxOSSupport()) {
 			cached = 0;
-            std::cout << " no os support " << std::endl;
 			return false;
 		}
 		// CPU support - https://github.com/Mysticial/FeatureDetector/blob/master/src/x86/cpu_x86.cpp#L109
@@ -216,11 +215,49 @@ namespace MemScanner {
 			cached = 1;
 			return true;
 		} else {
-            std::cout << "no  cpu support"  << avx << " " << avx2 << std::endl;
 			cached = 0;
 			return false;
 		}
 	}
+
+	std::pair<std::vector<uint8_t>, std::vector<uint8_t>> MemScanner::ParseSignature(const char* szSignature){
+		std::vector<uint8_t> patternBytes;
+		patternBytes.reserve(strlen(szSignature) / 3 + 1);
+		std::vector<uint8_t> patternMask;
+		patternMask.reserve(strlen(szSignature) / 3 + 1);
+
+		for (const char *patIt = szSignature; *patIt;) {
+			while (*patIt == ' ') patIt++;
+
+			if (!*patIt) break;
+
+			if (*patIt == '\?') {
+				if (!patternMask.empty()) {
+					patternBytes.push_back(0);
+					patternMask.push_back(0);
+				}
+
+				patIt++;
+				while (*patIt == '\?') patIt++;
+				continue;
+			}
+
+			if (!*(patIt + 1))
+				throw std::runtime_error("malformed signature");     // wat (second character of hex string is null???)
+			auto byt = strtoul(patIt, nullptr, 16);
+			patternBytes.push_back((uint8_t) (byt & 0xFF));
+			patternMask.push_back(0xFF);
+
+			patIt += 2;
+		}
+		// Remove trailing ??
+		while (!patternMask.empty() && patternMask.back() == 0) {
+			patternMask.pop_back();
+			patternBytes.pop_back();
+		}
+
+		return { patternBytes, patternMask };
+	};
 
 	bool MemScanner::doSearchSingleMapKey() {
 
@@ -278,17 +315,15 @@ namespace MemScanner {
 								   uintptr_t rangeStart,
 								   uintptr_t rangeEnd) {
 		const int patternSize = (int) mask.size();
-		if (patternSize < 1)
-			MEM_UNLIKELY
-					throw std::runtime_error("invalid pattern");
+		if (patternSize < 1) MEM_UNLIKELY
+			throw std::runtime_error("invalid pattern");
 		if (rangeStart + bytes.size() > rangeEnd) MEM_UNLIKELY
 			return nullptr;
 		auto *maskStart = mask.data();
 		auto *bytesStart = bytes.data();
 		auto startByte = reinterpret_cast<const uint8_t *>(bytesStart)[0];
 		auto startMask = reinterpret_cast<const uint8_t *>(maskStart)[0];
-		if (startMask == 0)
-			MEM_UNLIKELY
+		if (startMask == 0) MEM_UNLIKELY
             throw std::runtime_error("invalid pattern");
 		const auto end = rangeEnd - patternSize;
 
@@ -358,6 +393,7 @@ namespace MemScanner {
 		if (rangeStart + std::max((size_t) 32, bytes.size()) > rangeEnd) MEM_UNLIKELY
 			return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
 
+		// Second byte is masked, fall back to slower method
 		if(mask[1] != 0xFF) MEM_UNLIKELY
 			return this->findSignatureFastAVX2_SecondByteMasked<forward>(bytes, mask, rangeStart, rangeEnd);
 
@@ -476,40 +512,7 @@ namespace MemScanner {
 	template<bool forward>
 	void *MemScanner::findSignatureInRange(const char *szSignature, uintptr_t start, uintptr_t end, bool enableCache,
 										   bool allowAddToCache) {
-		std::vector<uint8_t> patternBytes;
-		patternBytes.reserve(strlen(szSignature) / 3 + 1);
-		std::vector<uint8_t> patternMask;
-		patternMask.reserve(strlen(szSignature) / 3 + 1);
-
-		for (const char *patIt = szSignature; *patIt;) {
-			while (*patIt == ' ') patIt++;
-
-			if (!*patIt) break;
-
-			if (*patIt == '\?') {
-				if (!patternMask.empty()) {
-					patternBytes.push_back(0);
-					patternMask.push_back(0);
-				}
-
-				patIt++;
-				while (*patIt == '\?') patIt++;
-				continue;
-			}
-
-			if (!*(patIt + 1))
-				throw std::runtime_error("malformed signature");     // wat (second character of hex string is null???)
-			auto byt = strtoul(patIt, nullptr, 16);
-			patternBytes.push_back((uint8_t) (byt & 0xFF));
-			patternMask.push_back(0xFF);
-
-			patIt += 2;
-		}
-		// Remove trailing ??
-		while (!patternMask.empty() && patternMask.back() == 0) {
-			patternMask.pop_back();
-			patternBytes.pop_back();
-		}
+		auto [ patternBytes, patternMask ] = MemScanner::ParseSignature(szSignature);
 
 		if (patternMask.empty()) throw std::runtime_error("empty signature after sanitization");
 
