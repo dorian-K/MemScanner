@@ -1,13 +1,13 @@
 #pragma once
 
-#include <vector>
-#include <shared_mutex>
-#include <mutex>
+#include <condition_variable>
 #include <deque>
 #include <map>
-#include <unordered_map>
-#include <condition_variable>
+#include <mutex>
+#include <shared_mutex>
 #include <thread>
+#include <unordered_map>
+#include <vector>
 
 namespace MemScanner {
 
@@ -20,7 +20,7 @@ namespace MemScanner {
 			};
 			union {
 				uint8_t mask[8];
-                uint64_t maskHash = 0;
+				uint64_t maskHash = 0;
 			};
 			uint8_t numBytesUsed{};
 
@@ -44,13 +44,9 @@ namespace MemScanner {
 				bytesHash &= maskHash;
 			}
 
-			bool operator==(const SearchMapKey &p) const {
-				return bytesHash == p.bytesHash && numBytesUsed == p.numBytesUsed && maskHash == p.maskHash;
-			}
+			bool operator==(const SearchMapKey &p) const { return bytesHash == p.bytesHash && numBytesUsed == p.numBytesUsed && maskHash == p.maskHash; }
 
-			bool operator!=(const SearchMapKey &p) const {
-				return !(*this == p);
-			}
+			bool operator!=(const SearchMapKey &p) const { return !(*this == p); }
 		};
 
 		struct hash_fn {
@@ -60,13 +56,13 @@ namespace MemScanner {
 		struct SearchMapValue {
 			uintptr_t start = 0, end = 0;
 
-            SearchMapValue() = default;
-            SearchMapValue(const SearchMapValue&) = default;
-            SearchMapValue(SearchMapValue&&) = default;
-            SearchMapValue(uintptr_t start, uintptr_t end) : start(start), end(end) {};
+			SearchMapValue() = default;
+			SearchMapValue(const SearchMapValue &) = default;
+			SearchMapValue(SearchMapValue &&) = default;
+			SearchMapValue(uintptr_t start, uintptr_t end) : start(start), end(end){};
 
 			SearchMapValue &operator=(const SearchMapValue &) = default;
-            SearchMapValue &operator=(SearchMapValue &&) = default;
+			SearchMapValue &operator=(SearchMapValue &&) = default;
 		};
 
 		struct NeedSearchObj {
@@ -74,8 +70,8 @@ namespace MemScanner {
 			bool isInSearch = false;
 			SearchMapValue regionToBeSearched;
 		};
-	private:
 
+	private:
 		bool shouldShutdown;
 		std::mutex shutdownMutex;
 		std::condition_variable wakeup;
@@ -87,18 +83,14 @@ namespace MemScanner {
 
 		std::multimap<int, NeedSearchObj> needSearchMap;
 
-		void
-		addToSearchMap(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t start,
-					   uintptr_t end);
+		void addToSearchMap(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t start, uintptr_t end);
 
-		bool
-		findInSearchMap(const SearchMapKey &key, SearchMapValue &region, bool allowAdd, SearchMapValue &originalRegion);
+		bool findInSearchMap(const SearchMapKey &key, SearchMapValue &region, bool allowAdd, SearchMapValue &originalRegion);
 
-		void getOrAddToSearchMap8Byte(const uint8_t *bytes, const uint8_t *mask, int size,
-									  SearchMapValue &region, bool allowAdd, SearchMapValue &originalRegion);
+		void getOrAddToSearchMap8Byte(const uint8_t *bytes, const uint8_t *mask, int size, SearchMapValue &region, bool allowAdd,
+									  SearchMapValue &originalRegion);
 
-		void getOrAddToSearchMap(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask,
-								 SearchMapValue &region, bool allowAdd);
+		void getOrAddToSearchMap(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, SearchMapValue &region, bool allowAdd);
 
 		static void SigRunner(MemScanner *me);
 
@@ -106,37 +98,31 @@ namespace MemScanner {
 		~MemScanner();
 
 		static bool hasFullAVXSupport();
-		static std::pair<std::vector<uint8_t>, std::vector<uint8_t>> ParseSignature(const char* signature);
+		static std::pair<std::vector<uint8_t>, std::vector<uint8_t>> ParseSignature(const char *signature);
 
 		bool doSearchSingleMapKey();
 
-		template<bool forward>
-		void *findSignatureFast1(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask,
-								 uintptr_t start, uintptr_t end);
+		template <bool forward>
+		void *findSignatureFast1(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t start, uintptr_t end);
 
-		template<bool forward>
-		void *findSignatureFast8(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask,
-								 uintptr_t start, uintptr_t end);
+		template <bool forward>
+		void *findSignatureFast8(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t start, uintptr_t end);
 
-		template<bool forward>
-		void *findSignatureFastAVX2(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask,
-								  uintptr_t start, uintptr_t end);
+		template <bool forward>
+		void *findSignatureFastAVX2(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t start, uintptr_t end);
 
 	protected:
-		template<bool forward>
-		void *findSignatureFastAVX2_SecondByteMasked(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask,
-								  uintptr_t start, uintptr_t end);
+		template <bool forward>
+		void *findSignatureFastAVX2_SecondByteMasked(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t start, uintptr_t end);
+
 	public:
 		// start inclusive, end exclusive
-		template<bool forward>
-		void *findSignatureInRange(const std::vector<uint8_t>& bytes, const std::vector<uint8_t>& mask,
-								   uintptr_t start, uintptr_t end,
-								   bool enableCache = true,bool allowAddToCache = true);
+		template <bool forward>
+		void *findSignatureInRange(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t start, uintptr_t end, bool enableCache = true,
+								   bool allowAddToCache = true);
 
-		template<bool forward>
-		void *findSignatureInRange(const char *szSignature,
-								   uintptr_t start, uintptr_t end,
-								   bool enableCache = true, bool allowAddToCache = true);
+		template <bool forward>
+		void *findSignatureInRange(const char *szSignature, uintptr_t start, uintptr_t end, bool enableCache = true, bool allowAddToCache = true);
 
 		void startSigRunnerThread();
 
@@ -145,4 +131,4 @@ namespace MemScanner {
 		void evictCache();
 	};
 
-};
+};	// namespace MemScanner

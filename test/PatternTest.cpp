@@ -1,8 +1,9 @@
+#include <MemScanner/MemScanner.h>
+
+#include <algorithm>
+#include <cstring>
 #include <iostream>
 #include <random>
-#include <MemScanner/MemScanner.h>
-#include <cstring>
-#include <algorithm>
 
 #ifdef NDEBUG
 #undef NDEBUG
@@ -13,8 +14,8 @@
 #endif
 
 #ifdef _WIN32
-#include <windows.h>
 #include <MemScanner/Mem.h>
+#include <windows.h>
 #endif
 
 #include <algorithm>
@@ -23,41 +24,39 @@
 
 namespace fs = std::filesystem;
 
-
-void testPatternAtEndOfBuffer(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t allocSize){
-
-	{ // without cache
-		volatile auto res = scanner.findSignatureInRange<true>("01 02 03 04", (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false);
+void testPatternAtEndOfBuffer(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t allocSize) {
+	{  // without cache
+		volatile auto res = scanner.findSignatureInRange<true>("01 02 03 04", (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], false);
 		assert(res == nullptr);
-		res = scanner.findSignatureInRange<false>("01 02 03 04", (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false);
+		res = scanner.findSignatureInRange<false>("01 02 03 04", (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], false);
 		assert(res == nullptr);
 		alloc[allocSize - 4] = 0x01;
 		alloc[allocSize - 3] = 0x02;
 		alloc[allocSize - 2] = 0x03;
 		alloc[allocSize - 1] = 0x04;
-		res = scanner.findSignatureInRange<true>("01 02 03 04", (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false);
+		res = scanner.findSignatureInRange<true>("01 02 03 04", (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], false);
 		assert(res == &alloc[allocSize - 4]);
-		res = scanner.findSignatureInRange<false>("01 02 03 04", (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false);
+		res = scanner.findSignatureInRange<false>("01 02 03 04", (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], false);
 		assert(res == &alloc[allocSize - 4]);
 	}
 	alloc[allocSize - 4] = 0x00;
 	alloc[allocSize - 3] = 0x00;
 	alloc[allocSize - 2] = 0x00;
 	alloc[allocSize - 1] = 0x00;
-	scanner.evictCache(); // For good measure
-	{ // with cache
-		volatile auto res = scanner.findSignatureInRange<true>("01 02 03 04", (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], true);
+	scanner.evictCache();  // For good measure
+	{					   // with cache
+		volatile auto res = scanner.findSignatureInRange<true>("01 02 03 04", (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], true);
 		assert(res == nullptr);
-		res = scanner.findSignatureInRange<false>("01 02 03 04", (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], true);
+		res = scanner.findSignatureInRange<false>("01 02 03 04", (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], true);
 		assert(res == nullptr);
 		alloc[allocSize - 4] = 0x01;
 		alloc[allocSize - 3] = 0x02;
 		alloc[allocSize - 2] = 0x03;
 		alloc[allocSize - 1] = 0x04;
 		scanner.evictCache();
-		res = scanner.findSignatureInRange<true>("01 02 03 04", (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], true);
+		res = scanner.findSignatureInRange<true>("01 02 03 04", (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], true);
 		assert(res == &alloc[allocSize - 4]);
-		res = scanner.findSignatureInRange<false>("01 02 03 04", (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], true);
+		res = scanner.findSignatureInRange<false>("01 02 03 04", (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], true);
 		assert(res == &alloc[allocSize - 4]);
 	}
 
@@ -68,38 +67,38 @@ void testPatternAtEndOfBuffer(MemScanner::MemScanner& scanner, unsigned char* al
 	scanner.evictCache();
 }
 
-void testPatternAtStartOfBuffer(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t allocSize){
-	{ // without cache
-		volatile auto res = scanner.findSignatureInRange<true>("01 02 03 04", (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false);
+void testPatternAtStartOfBuffer(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t allocSize) {
+	{  // without cache
+		volatile auto res = scanner.findSignatureInRange<true>("01 02 03 04", (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], false);
 		assert(res == nullptr);
-		res = scanner.findSignatureInRange<false>("01 02 03 04", (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false);
+		res = scanner.findSignatureInRange<false>("01 02 03 04", (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], false);
 		assert(res == nullptr);
 		alloc[0] = 0x01;
 		alloc[1] = 0x02;
 		alloc[2] = 0x03;
 		alloc[3] = 0x04;
-		res = scanner.findSignatureInRange<true>("01 02 03 04", (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false);
+		res = scanner.findSignatureInRange<true>("01 02 03 04", (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], false);
 		assert(res == &alloc[0]);
-		res = scanner.findSignatureInRange<false>("01 02 03 04", (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false);
+		res = scanner.findSignatureInRange<false>("01 02 03 04", (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], false);
 		assert(res == &alloc[0]);
 	}
 	alloc[0] = 0x00;
 	alloc[1] = 0x00;
 	alloc[2] = 0x00;
 	alloc[3] = 0x00;
-	scanner.evictCache(); // For good measure
-	{ // with cache
-		volatile auto res = scanner.findSignatureInRange<true>("01 02 03 04", (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], true);
+	scanner.evictCache();  // For good measure
+	{					   // with cache
+		volatile auto res = scanner.findSignatureInRange<true>("01 02 03 04", (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], true);
 		assert(res == nullptr);
-		res = scanner.findSignatureInRange<false>("01 02 03 04", (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], true);
+		res = scanner.findSignatureInRange<false>("01 02 03 04", (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], true);
 		assert(res == nullptr);
 		alloc[0] = 0x01;
 		alloc[1] = 0x02;
 		alloc[2] = 0x03;
 		alloc[3] = 0x04;
-		res = scanner.findSignatureInRange<true>("01 02 03 04", (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], true);
+		res = scanner.findSignatureInRange<true>("01 02 03 04", (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], true);
 		assert(res == &alloc[0]);
-		res = scanner.findSignatureInRange<false>("01 02 03 04", (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], true);
+		res = scanner.findSignatureInRange<false>("01 02 03 04", (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], true);
 		assert(res == &alloc[0]);
 	}
 
@@ -109,38 +108,38 @@ void testPatternAtStartOfBuffer(MemScanner::MemScanner& scanner, unsigned char* 
 	alloc[3] = 0x00;
 	scanner.evictCache();
 }
-double benchmarkScan(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t allocSize){
+double benchmarkScan(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t allocSize) {
 	const char* impossibleSig = "01 02 03 04 05 06 07 08 09 10 11 12";
 	scanner.evictCache();
-	assert(scanner.findSignatureInRange<true>(impossibleSig, (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false, false) == nullptr);
-	assert(scanner.findSignatureInRange<false>(impossibleSig, (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false, false) == nullptr);
+	assert(scanner.findSignatureInRange<true>(impossibleSig, (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], false, false) == nullptr);
+	assert(scanner.findSignatureInRange<false>(impossibleSig, (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], false, false) == nullptr);
 
 	// Don't include pattern parsing in performance timer
 	auto [patternBytes, patternMask] = MemScanner::MemScanner::ParseSignature(impossibleSig);
 	auto start = std::chrono::high_resolution_clock::now();
 	uintptr_t useful = 0;
-	const size_t numIterations = std::clamp(/*assume 5000mb/s*/5000000000 / (allocSize + 1), (size_t)20, (size_t)50000000);
+	const size_t numIterations = std::clamp(/*assume 5000mb/s*/ 5000000000 / (allocSize + 1), (size_t) 20, (size_t) 50000000);
 	int i = 0;
-	for(; i < numIterations; i++)
-		useful += (uintptr_t)scanner.findSignatureInRange<true>(patternBytes, patternMask, (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false, false);
+	for (; i < numIterations; i++)
+		useful += (uintptr_t) scanner.findSignatureInRange<true>(patternBytes, patternMask, (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], false, false);
 	auto end = std::chrono::high_resolution_clock::now();
 	assert(useful == 0);
-	double microTimePerScan = (double)std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / (double)numIterations;
+	double microTimePerScan = (double) std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / (double) numIterations;
 	double msTimePerScan = microTimePerScan / 1000;
-	double mbPerS = (double)allocSize / microTimePerScan;
+	double mbPerS = (double) allocSize / microTimePerScan;
 	printf("On average %.2fms / scan, %.1fMB/s\n", msTimePerScan, mbPerS);
 	return mbPerS;
 }
 
-void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t allocSize, unsigned int numThreads){
+void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t allocSize, unsigned int numThreads) {
 	const char* impossibleSig = "01 02 03 04 05 06 07 08 09 10 11 12";
-    auto patternPair = MemScanner::MemScanner::ParseSignature(impossibleSig);
+	auto patternPair = MemScanner::MemScanner::ParseSignature(impossibleSig);
 	auto patternBytes = std::get<0>(patternPair);
-    auto patternMask = std::get<1>(patternPair);
-    int numBytes = 12;
+	auto patternMask = std::get<1>(patternPair);
+	int numBytes = 12;
 	scanner.evictCache();
-	assert(scanner.findSignatureInRange<true>(patternBytes, patternMask, (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false) == nullptr);
-	assert(scanner.findSignatureInRange<false>(patternBytes, patternMask, (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false) == nullptr);
+	assert(scanner.findSignatureInRange<true>(patternBytes, patternMask, (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], false) == nullptr);
+	assert(scanner.findSignatureInRange<false>(patternBytes, patternMask, (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], false) == nullptr);
 
 	std::vector<std::thread> trs;
 	std::condition_variable cv;
@@ -148,35 +147,32 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 	unsigned int numWaitingThreads = 0;
 	unsigned int curIter = 0;
 	std::vector<unsigned int> numScanned{}, wakeupSignal{};
-	for(unsigned int i = 0; i < numThreads; i++){
+	for (unsigned int i = 0; i < numThreads; i++) {
 		numScanned.push_back(0);
 		wakeupSignal.push_back(0);
 	}
 
 	unsigned int numIters = 0x500000000 / allocSize;
 
-	auto doStuff = [&](uintptr_t from, uintptr_t to, int index){
-		while(true){
+	auto doStuff = [&](uintptr_t from, uintptr_t to, int index) {
+		while (true) {
 			volatile auto result = scanner.findSignatureInRange<true>(patternBytes, patternMask, from, to, false, false);
 			numScanned[index]++;
-			if(result != nullptr)
-				throw std::runtime_error("invalid: sig found in alloc");
+			if (result != nullptr) throw std::runtime_error("invalid: sig found in alloc");
 			std::unique_lock l(mtx);
 			numWaitingThreads++;
-			if(numWaitingThreads == numThreads){
+			if (numWaitingThreads == numThreads) {
 				numWaitingThreads = 0;
-				for(unsigned int i = 0; i <  numThreads; i++)
-					wakeupSignal[i] = 1;
+				for (unsigned int i = 0; i < numThreads; i++) wakeupSignal[i] = 1;
 				curIter++;
 				cv.notify_all();
-			}else
-				cv.wait(l, [index, &wakeupSignal](){
-					return wakeupSignal[index] == 1; // wakeup signal is needed because .wait can return spontaneously
+			} else
+				cv.wait(l, [index, &wakeupSignal]() {
+					return wakeupSignal[index] == 1;  // wakeup signal is needed because .wait can return spontaneously
 				});
 			wakeupSignal[index] = 0;
 
-			if(curIter >= numIters)
-				break;
+			if (curIter >= numIters) break;
 		}
 	};
 
@@ -184,110 +180,102 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 
 	auto bytesPerSplit = allocSize / numThreads;
 	assert(bytesPerSplit - numBytes >= 0);
-	//printf("%llX - %llx / %llX\n", &alloc[0], &alloc[allocSize], bytesPerSplit);
-	for(unsigned int t = 0; t < numThreads; t++){
+	// printf("%llX - %llx / %llX\n", &alloc[0], &alloc[allocSize], bytesPerSplit);
+	for (unsigned int t = 0; t < numThreads; t++) {
 		auto begin = t == 0 ? alloc : &alloc[bytesPerSplit * t - numBytes];
 		auto end = t == numThreads - 1 ? &alloc[allocSize] : &alloc[bytesPerSplit * (t + 1)];
 
-		//printf("%d: %llX - %llx\n", t, begin, end);
+		// printf("%d: %llX - %llx\n", t, begin, end);
 		trs.emplace_back(doStuff, (uintptr_t) begin, (uintptr_t) end, t);
 	}
-	assert(trs.size() == (size_t)numThreads);
+	assert(trs.size() == (size_t) numThreads);
 
-	for(std::thread& t : trs)
-		if(t.joinable())
-			t.join();
+	for (std::thread& t : trs)
+		if (t.joinable()) t.join();
 
-	if(numScanned[0] != numIters){
+	if (numScanned[0] != numIters) {
 		printf("numScanned[0] != numIters: %d != %d\n", numScanned[0], numIters);
 		assert(false);
 	}
 
-	for(unsigned int i = 0; i < numThreads - 1; i++){
-		if(numScanned[i] != numScanned[i+1]){
-			printf("numScanned[i] == numScanned[i+1]: %d != %d, i=%d\n", numScanned[i], numScanned[i+1], i);
+	for (unsigned int i = 0; i < numThreads - 1; i++) {
+		if (numScanned[i] != numScanned[i + 1]) {
+			printf("numScanned[i] == numScanned[i+1]: %d != %d, i=%d\n", numScanned[i], numScanned[i + 1], i);
 			assert(false);
 		}
 	}
 
 	auto end = std::chrono::high_resolution_clock::now();
-	double timePerScan = (double)std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / (double)numIters / 1000;
-	printf("On average %.2fms / scan, %.1fMB/s\n", timePerScan, 1000. / timePerScan * ((double)allocSize / 1000000.));
+	double timePerScan = (double) std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / (double) numIters / 1000;
+	printf("On average %.2fms / scan, %.1fMB/s\n", timePerScan, 1000. / timePerScan * ((double) allocSize / 1000000.));
 }
 
-void testBuffer(MemScanner::MemScanner& scanner, size_t allocSize, unsigned char* alloc){
-    testPatternAtEndOfBuffer(scanner, alloc, allocSize);
-    testPatternAtStartOfBuffer(scanner, alloc, allocSize);
-    printf("Tests success!\n");
+void testBuffer(MemScanner::MemScanner& scanner, size_t allocSize, unsigned char* alloc) {
+	testPatternAtEndOfBuffer(scanner, alloc, allocSize);
+	testPatternAtStartOfBuffer(scanner, alloc, allocSize);
+	printf("Tests success!\n");
 }
 
-void benchmarkBuffer(MemScanner::MemScanner& scanner, size_t allocSize, unsigned char* alloc, const std::string& type){
+void benchmarkBuffer(MemScanner::MemScanner& scanner, size_t allocSize, unsigned char* alloc, const std::string& type) {
+	printf("Benchmarking single threaded %s performance...\n", type.c_str());
+	for (int i = 0; i < 10; i++) benchmarkScan(scanner, alloc, allocSize);
 
-    printf("Benchmarking single threaded %s performance...\n", type.c_str());
-    for(int i = 0; i < 10; i++)
-        benchmarkScan(scanner, alloc, allocSize);
-
-    printf("Benchmarking multi threaded %s performance...\n", type.c_str());
-    auto maxThreads = std::clamp(std::thread::hardware_concurrency() / 2, 1u, 64u);
-    unsigned int curNThreads = 2;
-    while(curNThreads <= maxThreads){
-        printf("%d threads:\n", curNThreads);
-        for(int i = 0; i < 5; i++)
-            benchmarkMultiThreadedScan(scanner, alloc, allocSize, curNThreads);
-        if(curNThreads < 6)
-            curNThreads++;
-        else if(curNThreads <= 16)
-            curNThreads += 2;
-        else
-            curNThreads += 4;
-    }
+	printf("Benchmarking multi threaded %s performance...\n", type.c_str());
+	auto maxThreads = std::clamp(std::thread::hardware_concurrency() / 2, 1u, 64u);
+	unsigned int curNThreads = 2;
+	while (curNThreads <= maxThreads) {
+		printf("%d threads:\n", curNThreads);
+		for (int i = 0; i < 5; i++) benchmarkMultiThreadedScan(scanner, alloc, allocSize, curNThreads);
+		if (curNThreads < 6)
+			curNThreads++;
+		else if (curNThreads <= 16)
+			curNThreads += 2;
+		else
+			curNThreads += 4;
+	}
 }
 
-void testSyntheticBuffer(bool doBenchmark = true){
-	const size_t allocSize = 0x5000000;// ~83MB
+void testSyntheticBuffer(bool doBenchmark = true) {
+	const size_t allocSize = 0x5000000;	 // ~83MB
 
 	auto* alloc = new unsigned char[allocSize];
 
-	std::default_random_engine generator(123); // predictable seed
-	std::uniform_int_distribution<uint64_t> distribution(0,0xFFFFFFFFFFFFFFFF);
+	std::default_random_engine generator(123);	// predictable seed
+	std::uniform_int_distribution<uint64_t> distribution(0, 0xFFFFFFFFFFFFFFFF);
 
-	for(size_t i = 0; i < allocSize; i+=8)
-		*reinterpret_cast<uint64_t*>(&alloc[i]) = distribution(generator);
+	for (size_t i = 0; i < allocSize; i += 8) *reinterpret_cast<uint64_t*>(&alloc[i]) = distribution(generator);
 	printf("Allocated!\n");
 
-	MemScanner::MemScanner scanner; // Don't start sig runner thread, we do not need it
+	MemScanner::MemScanner scanner;	 // Don't start sig runner thread, we do not need it
 	testBuffer(scanner, allocSize, alloc);
-    if(doBenchmark)
-        benchmarkBuffer(scanner, allocSize, alloc, "synthetic");
+	if (doBenchmark) benchmarkBuffer(scanner, allocSize, alloc, "synthetic");
 }
 
-void testSyntheticBufferSize(bool enableBenchmark){
-    const size_t maxBuffer = enableBenchmark ? 0x10000000 : 0x100000;
+void testSyntheticBufferSize(bool enableBenchmark) {
+	const size_t maxBuffer = enableBenchmark ? 0x10000000 : 0x100000;
 
-	for(size_t allocSize = 0x8; allocSize <= maxBuffer; allocSize *= 2){
+	for (size_t allocSize = 0x8; allocSize <= maxBuffer; allocSize *= 2) {
 		auto* alloc = new unsigned char[allocSize];
 
-		std::default_random_engine generator(123); // predictable seed
-		std::uniform_int_distribution<uint64_t> distribution(0,0xFFFFFFFFFFFFFFFF);
+		std::default_random_engine generator(123);	// predictable seed
+		std::uniform_int_distribution<uint64_t> distribution(0, 0xFFFFFFFFFFFFFFFF);
 
-		for(size_t i = 0; i < allocSize; i+=8)
-			*reinterpret_cast<uint64_t*>(&alloc[i]) = distribution(generator);
+		for (size_t i = 0; i < allocSize; i += 8) *reinterpret_cast<uint64_t*>(&alloc[i]) = distribution(generator);
 		printf("Allocated!\n");
 
-		MemScanner::MemScanner scanner; // Don't start sig runner thread, we do not need it
+		MemScanner::MemScanner scanner;	 // Don't start sig runner thread, we do not need it
 		testBuffer(scanner, allocSize, alloc);
-		if(enableBenchmark){
+		if (enableBenchmark) {
 			printf("Benchmarking single threaded synthetic 0x%lX buffer...\n", allocSize);
-			for(int i = 0; i < 5; i++)
-				benchmarkScan(scanner, alloc, allocSize);
+			for (int i = 0; i < 5; i++) benchmarkScan(scanner, alloc, allocSize);
 		}
 	}
 }
 
-void testSelf(){
+void testSelf() {
 #ifdef _WIN32
 	MemScanner::Mem mem{};
-	auto exeHandle = (void *) GetModuleHandleA(nullptr);
+	auto exeHandle = (void*) GetModuleHandleA(nullptr);
 	auto textSection = MemScanner::Mem::GetSectionRange(exeHandle, ".text");
 	auto allocSize = textSection.second - textSection.first;
 	auto* alloc = (unsigned char*) textSection.first;
@@ -295,42 +283,39 @@ void testSelf(){
 
 	benchmarkBuffer(mem.getScanner(), allocSize, alloc, ".exe");
 #else
-    printf("Self test is only implemented on windows!");
+	printf("Self test is only implemented on windows!");
 #endif
 }
 
-void testSecondary(const fs::path& path){
-    assert(fs::exists(path));
-    assert(fs::is_regular_file(path));
+void testSecondary(const fs::path& path) {
+	assert(fs::exists(path));
+	assert(fs::is_regular_file(path));
 
-    std::basic_fstream<unsigned char> inStream(path);
-    if(!inStream.good())
-        throw std::runtime_error("could not open infile");
-    auto file_size = fs::file_size(path);
-    auto buffer = std::make_unique<unsigned char[]>(file_size);
-    inStream.read(buffer.get(), file_size);
-    inStream.close();
+	std::basic_fstream<unsigned char> inStream(path);
+	if (!inStream.good()) throw std::runtime_error("could not open infile");
+	auto file_size = fs::file_size(path);
+	auto buffer = std::make_unique<unsigned char[]>(file_size);
+	inStream.read(buffer.get(), file_size);
+	inStream.close();
 
-    MemScanner::MemScanner scanner{};
-    benchmarkBuffer(scanner, file_size, buffer.get(), "secondary exe");
+	MemScanner::MemScanner scanner{};
+	benchmarkBuffer(scanner, file_size, buffer.get(), "secondary exe");
 }
 
-int main(int argc, char *argv[]){
-    printf("AVX: %s\n", MemScanner::MemScanner::hasFullAVXSupport() ? "enabled" : "unsupported");
+int main(int argc, char* argv[]) {
+	printf("AVX: %s\n", MemScanner::MemScanner::hasFullAVXSupport() ? "enabled" : "unsupported");
 
-    bool enableBenchmark = true;
-    if(argc >= 2){
-        for(int i = 0; i < argc; i++){
-            if(strcmp(argv[i], "nobenchmark") == 0)
-                enableBenchmark = false;
-        }
-    }
+	bool enableBenchmark = true;
+	if (argc >= 2) {
+		for (int i = 0; i < argc; i++) {
+			if (strcmp(argv[i], "nobenchmark") == 0) enableBenchmark = false;
+		}
+	}
 
 	testSyntheticBufferSize(enableBenchmark);
 	testSyntheticBuffer(enableBenchmark);
-	if(enableBenchmark)
-	    testSelf();
-    //testSecondary(fs::path("/"));
+	if (enableBenchmark) testSelf();
+	// testSecondary(fs::path("/"));
 
 	return 0;
 }
