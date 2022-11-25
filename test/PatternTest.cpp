@@ -128,16 +128,19 @@ double benchmarkScan(MemScanner::MemScanner& scanner, unsigned char* alloc, size
 	double microTimePerScan = (double)std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / (double)numIterations;
 	double msTimePerScan = microTimePerScan / 1000;
 	double mbPerS = (double)allocSize / microTimePerScan;
-	printf("On average %.2fms / scan, %.1fMB/s (debug: %lld, %lld)\n", msTimePerScan, mbPerS, std::chrono::duration_cast<std::chrono::microseconds>(end - start).count(), numIterations);
+	printf("On average %.2fms / scan, %.1fMB/s\n", msTimePerScan, mbPerS);
 	return mbPerS;
 }
 
 void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t allocSize, unsigned int numThreads){
 	const char* impossibleSig = "01 02 03 04 05 06 07 08 09 10 11 12";
-	int numBytes = 12;
+    auto patternPair = MemScanner::MemScanner::ParseSignature(impossibleSig);
+	auto patternBytes = std::get<0>(patternPair);
+    auto patternMask = std::get<1>(patternPair);
+    int numBytes = 12;
 	scanner.evictCache();
-	assert(scanner.findSignatureInRange<true>(impossibleSig, (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false) == nullptr);
-	assert(scanner.findSignatureInRange<false>(impossibleSig, (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false) == nullptr);
+	assert(scanner.findSignatureInRange<true>(patternBytes, patternMask, (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false) == nullptr);
+	assert(scanner.findSignatureInRange<false>(patternBytes, patternMask, (uintptr_t)alloc, (uintptr_t)&alloc[allocSize], false) == nullptr);
 
 	std::vector<std::thread> trs;
 	std::condition_variable cv;
@@ -154,7 +157,7 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 
 	auto doStuff = [&](uintptr_t from, uintptr_t to, int index){
 		while(true){
-			volatile auto result = scanner.findSignatureInRange<true>(impossibleSig, from, to, false, false);
+			volatile auto result = scanner.findSignatureInRange<true>(patternBytes, patternMask, from, to, false, false);
 			numScanned[index]++;
 			if(result != nullptr)
 				throw std::runtime_error("invalid: sig found in alloc");
@@ -259,7 +262,9 @@ void testSyntheticBuffer(bool doBenchmark = true){
 }
 
 void testSyntheticBufferSize(bool enableBenchmark){
-	for(size_t allocSize = 0x20; allocSize <= 0x10000000; allocSize *= 2){
+    const size_t maxBuffer = enableBenchmark ? 0x10000000 : 0x100000;
+
+	for(size_t allocSize = 0x8; allocSize <= maxBuffer; allocSize *= 2){
 		auto* alloc = new unsigned char[allocSize];
 
 		std::default_random_engine generator(123); // predictable seed
@@ -272,7 +277,7 @@ void testSyntheticBufferSize(bool enableBenchmark){
 		MemScanner::MemScanner scanner; // Don't start sig runner thread, we do not need it
 		testBuffer(scanner, allocSize, alloc);
 		if(enableBenchmark){
-			printf("Benchmarking single threaded synthetic %llX buffer...\n", allocSize);
+			printf("Benchmarking single threaded synthetic 0x%lX buffer...\n", allocSize);
 			for(int i = 0; i < 5; i++)
 				benchmarkScan(scanner, alloc, allocSize);
 		}
