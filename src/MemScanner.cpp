@@ -15,6 +15,7 @@
 #include <psapi.h>
 // clang-format on
 #endif
+
 #include <immintrin.h>
 
 #include <array>
@@ -29,6 +30,7 @@ inline void cpuid_impl(T cpuInfo[4], int f, int sub) {
 }
 
 #elif __GNUC__
+
 #include <cpuid.h>
 
 inline unsigned char bitscanforward(unsigned long *index, unsigned long mask) {

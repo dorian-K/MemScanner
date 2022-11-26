@@ -27,7 +27,7 @@ namespace MemScanner {
 			SearchMapKey() = default;
 
 			SearchMapKey(const uint8_t *byt, const uint8_t *mas, unsigned int num) {
-				numBytesUsed = (uint8_t)std::min(num, 8u);
+				numBytesUsed = (uint8_t) std::min(num, 8u);
 				for (int i = 0; i < numBytesUsed; i++) {
 					bytes[i] = byt[i];
 					mask[i] = mas[i];
@@ -36,7 +36,7 @@ namespace MemScanner {
 			}
 
 			SearchMapKey(const std::vector<uint8_t> &byt, const std::vector<uint8_t> &mas) {
-				numBytesUsed = (uint8_t) std::min((int)byt.size(), 8);
+				numBytesUsed = (uint8_t) std::min((int) byt.size(), 8);
 				for (int i = 0; i < numBytesUsed; i++) {
 					bytes[i] = byt[i];
 					mask[i] = mas[i];
@@ -57,11 +57,15 @@ namespace MemScanner {
 			uintptr_t start = 0, end = 0;
 
 			SearchMapValue() = default;
+
 			SearchMapValue(const SearchMapValue &) = default;
+
 			SearchMapValue(SearchMapValue &&) = default;
+
 			SearchMapValue(uintptr_t start, uintptr_t end) : start(start), end(end){};
 
 			SearchMapValue &operator=(const SearchMapValue &) = default;
+
 			SearchMapValue &operator=(SearchMapValue &&) = default;
 		};
 
@@ -98,6 +102,7 @@ namespace MemScanner {
 		~MemScanner();
 
 		static bool hasFullAVXSupport();
+
 		static std::pair<std::vector<uint8_t>, std::vector<uint8_t>> ParseSignature(const char *signature);
 
 		bool doSearchSingleMapKey();
