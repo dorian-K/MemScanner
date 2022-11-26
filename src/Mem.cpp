@@ -55,7 +55,7 @@ namespace MemScanner {
 		auto *dosHeader = reinterpret_cast<PIMAGE_DOS_HEADER>(module);
 		if (dosHeader->e_magic != IMAGE_DOS_SIGNATURE) throw std::runtime_error("malformed dos header");
 
-		auto *ntHeader = reinterpret_cast<PIMAGE_NT_HEADERS>(baseAddr + dosHeader->e_lfanew);
+		auto *ntHeader = reinterpret_cast<PIMAGE_NT_HEADERS>(baseAddr + (uint64_t) dosHeader->e_lfanew);
 		if (ntHeader->Signature != IMAGE_NT_SIGNATURE) throw std::runtime_error("malformed nt header");
 
 		auto *sectionHeader = IMAGE_FIRST_SECTION(ntHeader);

@@ -154,7 +154,7 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 
 	auto numIters = 0x500000000L / allocSize;
 
-	auto doStuff = [&](uintptr_t from, uintptr_t to, int index) {
+	auto doStuff = [&](uintptr_t from, uintptr_t to, unsigned int index) {
 		while (true) {
 			volatile auto result = scanner.findSignatureInRange<true>(patternBytes, patternMask, from, to, false, false);
 			numScanned[index]++;
@@ -295,7 +295,7 @@ void testSecondary(const fs::path& path) {
 	if (!inStream.good()) throw std::runtime_error("could not open infile");
 	auto file_size = fs::file_size(path);
 	auto buffer = std::make_unique<unsigned char[]>(file_size);
-	inStream.read(buffer.get(), file_size);
+	inStream.read(buffer.get(), (std::streamsize) file_size);
 	inStream.close();
 
 	MemScanner::MemScanner scanner{};

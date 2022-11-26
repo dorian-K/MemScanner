@@ -17,7 +17,7 @@ if(MEMSCANNER_STRICT)
     if(MSVC)
         add_compile_options(/W4 /WX)
     else()
-        add_compile_options(-Wall -Wextra -Wpedantic -Werror -Wno-unused-parameter)
+        add_compile_options(-Wall -Wextra -Wpedantic -Werror -Wno-unused-parameter -Wconversion -Weffc++)
     endif()
 endif()
 

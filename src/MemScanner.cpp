@@ -40,11 +40,11 @@ namespace MemScanner {
 		return true;
 	}
 
-	void MemScanner::getOrAddToSearchMap8Byte(const uint8_t *bytes, const uint8_t *mask, int size, SearchMapValue &region, bool allowAdd,
+	void MemScanner::getOrAddToSearchMap8Byte(const uint8_t *bytes, const uint8_t *mask, unsigned int size, SearchMapValue &region, bool allowAdd,
 											  SearchMapValue &originalRegion) {
 		// iprnt("prev region: {:X} - {:X}", region.start, region.end);
 
-		for (int i = 0; i < std::min(8, size); i++) {
+		for (unsigned int i = 0; i < std::min(8u, size); i++) {
 			if (i > 0 && mask[i] == 0) continue;
 
 			SearchMapKey key(bytes, mask, i + 1);
@@ -58,14 +58,14 @@ namespace MemScanner {
 	void MemScanner::getOrAddToSearchMap(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, SearchMapValue &region, bool allowAdd) {
 		SearchMapValue originalRegion(region);
 		originalRegion.end += bytes.size();
-		getOrAddToSearchMap8Byte(bytes.data(), mask.data(), (int) bytes.size(), region, allowAdd, originalRegion);
+		getOrAddToSearchMap8Byte(bytes.data(), mask.data(), (unsigned int) bytes.size(), region, allowAdd, originalRegion);
 		if (bytes.size() <= 8 || region.start >= region.end) return;
 		region.end -= bytes.size();
 		// try all the permutations
 		for (unsigned int i = 1; i < bytes.size(); i++) {
 			if (mask[i] == 0) continue;
 			SearchMapValue tempRegion(region);
-			getOrAddToSearchMap8Byte(bytes.data() + i, mask.data() + i, (int) bytes.size() - i, tempRegion, allowAdd, originalRegion);
+			getOrAddToSearchMap8Byte(bytes.data() + i, mask.data() + i, (unsigned int) bytes.size() - i, tempRegion, allowAdd, originalRegion);
 			region.start = std::max(region.start, tempRegion.start - i);
 		}
 
@@ -105,7 +105,7 @@ namespace MemScanner {
 		bool avx = false, avx2 = false;
 		unsigned int info[4]{};
 		cpuid_impl(info, 0, 0);
-		int nIds = info[0];
+		auto nIds = info[0];
 
 		if (nIds >= 0x00000001) {
 			cpuid_impl(info, 0x00000001, 0);
@@ -214,7 +214,7 @@ namespace MemScanner {
 
 	template <bool forward>
 	void *MemScanner::findSignatureFast1(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t rangeStart, uintptr_t rangeEnd) {
-		const int patternSize = (int) mask.size();
+		const auto patternSize = mask.size();
 		if (patternSize < 1) MEM_UNLIKELY
 		throw std::runtime_error("invalid pattern");
 		if (rangeStart + bytes.size() > rangeEnd) MEM_UNLIKELY
@@ -227,10 +227,10 @@ namespace MemScanner {
 		throw std::runtime_error("invalid pattern");
 		const auto end = rangeEnd - patternSize;
 
-		for (uintptr_t pCur = forward ? rangeStart : end; forward ? (pCur <= end) : (pCur >= rangeStart); pCur += (forward ? 1 : -1)) {
+		for (uintptr_t pCur = forward ? rangeStart : end; forward ? (pCur <= end) : (pCur >= rangeStart); forward ? (pCur++) : (pCur--)) {
 			if (*reinterpret_cast<uint8_t *>(pCur) == startByte) MEM_UNLIKELY {
 					uintptr_t curP = pCur + 1;
-					int off = 1;
+					unsigned int off = 1;
 
 					for (; off < patternSize; off++) {
 						if (*(uint8_t *) curP != bytesStart[off] && maskStart[off] != 0) MEM_LIKELY
@@ -254,7 +254,7 @@ namespace MemScanner {
 	template <bool forward>
 	void *MemScanner::findSignatureFast8(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t rangeStart, uintptr_t rangeEnd) {
 		if constexpr (!forward) return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
-		const int patternSize = (int) mask.size();
+		const auto patternSize = mask.size();
 		if (patternSize < 8) return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
 		if (rangeStart + bytes.size() > rangeEnd) MEM_UNLIKELY
 		return nullptr;
@@ -273,7 +273,7 @@ namespace MemScanner {
 		for (uintptr_t pCur = rangeStart; pCur <= end; pCur++) {
 			if (*reinterpret_cast<uint64_t *>(pCur) == startByte) MEM_UNLIKELY {
 					uintptr_t curP = pCur + 8;
-					int off = 8;
+					unsigned int off = 8;
 					for (; off < patternSize; off++) {
 						if (*(uint8_t *) curP != bytesStart[off] && maskStart[off] != 0) MEM_LIKELY
 						break;
