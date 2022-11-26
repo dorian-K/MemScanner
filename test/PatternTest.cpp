@@ -179,7 +179,7 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 	auto start = std::chrono::high_resolution_clock::now();
 
 	auto bytesPerSplit = allocSize / numThreads;
-	assert(bytesPerSplit - numBytes >= 0);
+	assert(bytesPerSplit >= numBytes);
 	// printf("%llX - %llx / %llX\n", &alloc[0], &alloc[allocSize], bytesPerSplit);
 	for (unsigned int t = 0; t < numThreads; t++) {
 		auto begin = t == 0 ? alloc : &alloc[bytesPerSplit * t - numBytes];
