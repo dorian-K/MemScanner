@@ -1,9 +1,9 @@
-#include <MemScanner/MemScanner.h>
 #include <MemScanner/Macros.h>
+#include <MemScanner/MemScanner.h>
 
+#include <array>
 #include <cstring>
 #include <iostream>
-#include <array>
 
 namespace MemScanner {
 
@@ -245,9 +245,11 @@ namespace MemScanner {
 		return nullptr;
 	}
 
-	template void *MemScanner::findSignatureFast1<true>(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t rangeStart, uintptr_t rangeEnd);
+	template void *MemScanner::findSignatureFast1<true>(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t rangeStart,
+														uintptr_t rangeEnd);
 
-	template void *MemScanner::findSignatureFast1<false>(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t rangeStart, uintptr_t rangeEnd);
+	template void *MemScanner::findSignatureFast1<false>(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t rangeStart,
+														 uintptr_t rangeEnd);
 
 	template <bool forward>
 	void *MemScanner::findSignatureFast8(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t rangeStart, uintptr_t rangeEnd) {
@@ -283,9 +285,11 @@ namespace MemScanner {
 		return nullptr;
 	}
 
-	template void *MemScanner::findSignatureFast8<true>(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t rangeStart, uintptr_t rangeEnd);
+	template void *MemScanner::findSignatureFast8<true>(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t rangeStart,
+														uintptr_t rangeEnd);
 
-	template void *MemScanner::findSignatureFast8<false>(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t rangeStart, uintptr_t rangeEnd);
+	template void *MemScanner::findSignatureFast8<false>(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t rangeStart,
+														 uintptr_t rangeEnd);
 
 	template <bool forward>
 	void *MemScanner::findSignatureInRange(const std::vector<uint8_t> &patternBytes, const std::vector<uint8_t> &patternMask, uintptr_t start, uintptr_t end,

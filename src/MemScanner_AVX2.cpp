@@ -1,5 +1,5 @@
-#include <MemScanner/MemScanner.h>
 #include <MemScanner/Macros.h>
+#include <MemScanner/MemScanner.h>
 
 namespace MemScanner {
 	template <bool forward>
@@ -102,7 +102,9 @@ namespace MemScanner {
 		return nullptr;
 	}
 
-	template void *MemScanner::findSignatureFastAVX2<true>(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t rangeStart, uintptr_t rangeEnd);
+	template void *MemScanner::findSignatureFastAVX2<true>(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t rangeStart,
+														   uintptr_t rangeEnd);
 
-	template void *MemScanner::findSignatureFastAVX2<false>(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t rangeStart, uintptr_t rangeEnd);
-}
+	template void *MemScanner::findSignatureFastAVX2<false>(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t rangeStart,
+															uintptr_t rangeEnd);
+}  // namespace MemScanner
