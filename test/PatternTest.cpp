@@ -349,16 +349,16 @@ void testRandomSyntheticBufferSize() {
 			}
 			assert(pattern.size() == mask.size());
 
-			uint64_t goodFind;
+			uintptr_t goodFind;
 			bool shouldFindPattern = false;
 			while (true) {
-				goodFind = (uint64_t) knownGoodPatternSearch(pattern, mask, (uintptr_t) alloc, (uintptr_t) &alloc[allocSize]);
+				goodFind = (uintptr_t) knownGoodPatternSearch(pattern, mask, (uintptr_t) alloc, (uintptr_t) &alloc[allocSize]);
 				assert(!(shouldFindPattern && goodFind == 0));
 				auto ourFind =
-					(uint64_t) scanner.findSignatureInRange<true>(pattern, mask, (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], testCache, testCache);
+					(uintptr_t) scanner.findSignatureInRange<true>(pattern, mask, (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], testCache, testCache);
 
 				if (goodFind != ourFind) {
-					fprintf(stderr, "\nMismatch: %llX != %llX\n", goodFind, ourFind);
+					fprintf(stderr, "\nMismatch: %zX != %zX\n", goodFind, ourFind);
 					if (goodFind != 0) fprintf(stderr, "goodFind = %zd\n", goodFind - (uintptr_t) alloc);
 					if (ourFind != 0) fprintf(stderr, "ourFind = %zd\n", ourFind - (uintptr_t) alloc);
 					fprintf(stderr, "\nAlloc Size: %zd\n", allocSize);
