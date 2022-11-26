@@ -2,6 +2,7 @@
 #include <MemScanner/MemScanner.h>
 
 #include <array>
+#include <cassert>
 #include <cstring>
 #include <iostream>
 
@@ -215,27 +216,22 @@ namespace MemScanner {
 	template <bool forward>
 	void *MemScanner::findSignatureFast1(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t rangeStart, uintptr_t rangeEnd) {
 		const auto patternSize = mask.size();
-		if (patternSize < 1) MEM_UNLIKELY
-		throw std::runtime_error("invalid pattern");
+		assert(patternSize >= 1);
 		if (rangeStart + bytes.size() > rangeEnd) MEM_UNLIKELY
 		return nullptr;
 		auto *maskStart = mask.data();
 		auto *bytesStart = bytes.data();
 		auto startByte = reinterpret_cast<const uint8_t *>(bytesStart)[0];
-		auto startMask = reinterpret_cast<const uint8_t *>(maskStart)[0];
-		if (startMask == 0) MEM_UNLIKELY
-		throw std::runtime_error("invalid pattern");
+		assert(maskStart[0] != 0);
 		const auto end = rangeEnd - patternSize;
 
 		for (uintptr_t pCur = forward ? rangeStart : end; forward ? (pCur <= end) : (pCur >= rangeStart); forward ? (pCur++) : (pCur--)) {
 			if (*reinterpret_cast<uint8_t *>(pCur) == startByte) MEM_UNLIKELY {
-					uintptr_t curP = pCur + 1;
 					unsigned int off = 1;
 
 					for (; off < patternSize; off++) {
-						if (*(uint8_t *) curP != bytesStart[off] && maskStart[off] != 0) MEM_LIKELY
+						if (*(uint8_t *) (pCur + off) != bytesStart[off] && maskStart[off] != 0) MEM_LIKELY
 						break;
-						curP++;
 					}
 					if (off == patternSize) MEM_UNLIKELY
 					return reinterpret_cast<void *>(pCur);
@@ -302,6 +298,8 @@ namespace MemScanner {
 			this->getOrAddToSearchMap(patternBytes, patternMask, val, allowAddToCache);
 		else
 			val.end += patternBytes.size();
+
+		if (patternBytes.empty() || patternMask.at(0) == 0) throw std::runtime_error("invalid pattern");
 
 		return this->findSignatureFastAVX2<forward>(patternBytes, patternMask, val.start, val.end);
 	}

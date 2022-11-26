@@ -18,7 +18,6 @@
 #include <windows.h>
 #endif
 
-#include <algorithm>
 #include <filesystem>
 #include <fstream>
 
@@ -211,9 +210,11 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 }
 
 void testBuffer(MemScanner::MemScanner& scanner, size_t allocSize, unsigned char* alloc) {
-	testPatternAtEndOfBuffer(scanner, alloc, allocSize);
-	testPatternAtStartOfBuffer(scanner, alloc, allocSize);
-	printf("Tests success!\n");
+	if (allocSize >= 4) {
+		testPatternAtEndOfBuffer(scanner, alloc, allocSize);
+		testPatternAtStartOfBuffer(scanner, alloc, allocSize);
+	}
+	printf("Tests success! (Allocation size: %zd)\n", allocSize);
 }
 
 void benchmarkBuffer(MemScanner::MemScanner& scanner, size_t allocSize, unsigned char* alloc, const std::string& type) {
@@ -249,6 +250,8 @@ void testSyntheticBuffer(bool doBenchmark = true) {
 	MemScanner::MemScanner scanner;	 // Don't start sig runner thread, we do not need it
 	testBuffer(scanner, allocSize, alloc);
 	if (doBenchmark) benchmarkBuffer(scanner, allocSize, alloc, "synthetic");
+
+	delete[] alloc;
 }
 
 void testSyntheticBufferSize(bool enableBenchmark) {
@@ -256,6 +259,7 @@ void testSyntheticBufferSize(bool enableBenchmark) {
 
 	for (size_t allocSize = 0x8; allocSize <= maxBuffer; allocSize *= 2) {
 		auto* alloc = new unsigned char[allocSize];
+		assert(alloc != nullptr);
 
 		std::default_random_engine generator(123);	// predictable seed
 		std::uniform_int_distribution<uint64_t> distribution(0, 0xFFFFFFFFFFFFFFFF);
@@ -269,6 +273,34 @@ void testSyntheticBufferSize(bool enableBenchmark) {
 			printf("Benchmarking single threaded synthetic 0x%zX buffer...\n", allocSize);
 			for (int i = 0; i < 5; i++) benchmarkScan(scanner, alloc, allocSize);
 		}
+
+		delete[] alloc;
+	}
+}
+
+void testRandomSyntheticBufferSize() {
+	const size_t maxBuffer = 0x4000;
+
+	std::default_random_engine generator(123);	// predictable seed
+	std::uniform_int_distribution<uint64_t> distribution(0, 0xFFFFFFFFFFFFFFFF);
+	std::uniform_int_distribution<uint64_t> sizeDistribution(64, maxBuffer);
+	for (unsigned int e = 0; e < 2000; e++) {
+		size_t allocSize;
+		if (e <= 64)
+			allocSize = (size_t) e;
+		else {
+			allocSize = sizeDistribution(generator);
+		}
+		auto* alloc = new unsigned char[allocSize];
+		assert(alloc != nullptr);
+
+		for (size_t i = 0; i < (allocSize & (~7u)); i += 8) *reinterpret_cast<uint64_t*>(&alloc[i]) = distribution(generator);
+		for (size_t i = (allocSize & (~7u)); i < allocSize; i++) alloc[i] = (unsigned char) distribution(generator);
+
+		MemScanner::MemScanner scanner;	 // Don't start sig runner thread, we do not need it
+		testBuffer(scanner, allocSize, alloc);
+
+		delete[] alloc;
 	}
 }
 
@@ -312,6 +344,7 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
+	testRandomSyntheticBufferSize();
 	testSyntheticBufferSize(enableBenchmark);
 	testSyntheticBuffer(enableBenchmark);
 	if (enableBenchmark) testSelf();
