@@ -10,7 +10,7 @@ namespace MemScanner {
 		const auto patternSize = (unsigned int) mask.size();
 		if (patternSize <= 2) return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
 		if (!MemScanner::hasFullAVXSupport()) return this->findSignatureFast8<true>(bytes, mask, rangeStart, rangeEnd);
-		if (rangeStart + std::max((size_t) 32, bytes.size()) >= rangeEnd) MEM_UNLIKELY
+		if (rangeStart + 32 + bytes.size() >= rangeEnd) MEM_UNLIKELY
 		return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
 
 		// Second byte is masked, fall back to slower method
@@ -23,7 +23,7 @@ namespace MemScanner {
 
 		const auto *maskStart = mask.data();
 		const auto *bytesStart = bytes.data();
-		const auto end = rangeEnd - std::max(32u, patternSize);
+		const auto end = std::max(rangeStart, rangeEnd - 32u - patternSize);
 		assert(end >= rangeStart);
 
 		for (uintptr_t pCur = rangeStart; pCur <= end; pCur += 32) {
@@ -60,24 +60,21 @@ namespace MemScanner {
 			}
 		}
 
-		if (patternSize < 32) {	 // Scan the remaining 32 bytes with the old algorithm
-			return this->findSignatureFast1<true>(bytes, mask, end - 1, rangeEnd);
-		}
-
-		return nullptr;
+		// Scan the remaining bytes with the old algorithm
+		return this->findSignatureFast1<true>(bytes, mask, end, rangeEnd);
 	}
 
 	template <bool forward>
 	void *MemScanner::findSignatureFastAVX2_SecondByteMasked(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t rangeStart,
 															 uintptr_t rangeEnd) {
-		const auto patternSize = (unsigned int) mask.size();
+		const auto patternSize = (unsigned int) bytes.size();
 		// we don't need any checks, they were already done in the real avx2 impl
 
 		const __m256i firstByteLaidOut = _mm256_set1_epi8(*reinterpret_cast<const char *>(&bytes[0]));	// AVX
 
 		const auto *maskStart = mask.data();
 		const auto *bytesStart = bytes.data();
-		const auto end = rangeEnd - std::max(32u, patternSize);
+		const auto end = std::max(rangeStart, rangeEnd - 32u - patternSize);
 
 		for (uintptr_t pCur = rangeStart; pCur <= end; pCur += 32) {
 			const __m256i toBeCompared = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(pCur));  // AVX
@@ -101,11 +98,7 @@ namespace MemScanner {
 			}
 		}
 
-		if (patternSize < 32) {	 // Scan the remaining 32 bytes with the old algorithm
-			return this->findSignatureFast1<true>(bytes, mask, end - 1, rangeEnd);
-		}
-
-		return nullptr;
+		return this->findSignatureFast1<true>(bytes, mask, end, rangeEnd);
 	}
 
 	template void *MemScanner::findSignatureFastAVX2<true>(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t rangeStart,

@@ -23,6 +23,34 @@
 
 namespace fs = std::filesystem;
 
+unsigned char* knownGoodPatternSearch(const std::vector<uint8_t>& bytes, const std::vector<uint8_t>& mask, uintptr_t rangeStart, uintptr_t rangeEnd) {
+	if (rangeStart + bytes.size() > rangeEnd) {
+		assert(false);
+		return nullptr;
+	}
+	assert(mask.at(0) != 0);
+	auto* maskStart = mask.data();
+	auto* bytesStart = bytes.data();
+	auto startByte = reinterpret_cast<const uint8_t*>(bytesStart)[0];
+	const auto end = rangeEnd - bytes.size();
+	const auto patternSize = bytes.size();
+
+	auto i = rangeStart;
+	while (i <= end) {
+		i = (uintptr_t) std::find(reinterpret_cast<uint8_t*>(i), reinterpret_cast<uint8_t*>(end + 1), startByte);
+		if (i == end + 1) break;
+
+		int off = 1;
+		for (; off < patternSize; off++) {
+			if (*(uint8_t*) (i + off) != bytesStart[off] && maskStart[off] != 0) break;
+		}
+		if (off == patternSize) return (unsigned char*) i;
+
+		i++;
+	}
+	return nullptr;
+}
+
 void testPatternAtEndOfBuffer(MemScanner::MemScanner& scanner, unsigned char* alloc, size_t allocSize) {
 	{  // without cache
 		volatile auto res = scanner.findSignatureInRange<true>("01 02 03 04", (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], false);
@@ -278,27 +306,84 @@ void testSyntheticBufferSize(bool enableBenchmark) {
 	}
 }
 
+template <bool testCache>
 void testRandomSyntheticBufferSize() {
 	const size_t maxBuffer = 0x4000;
+	const int numSizeIterations = 1500;
 
-	std::default_random_engine generator(123);	// predictable seed
+	std::default_random_engine generator(testCache ? 123 : 124);  // predictable seed
 	std::uniform_int_distribution<uint64_t> distribution(0, 0xFFFFFFFFFFFFFFFF);
 	std::uniform_int_distribution<uint64_t> sizeDistribution(64, maxBuffer);
-	for (unsigned int e = 0; e < 2000; e++) {
+	std::uniform_int_distribution<uint64_t> largePatternSizeDistribution(8, 128);
+	std::uniform_int_distribution<uint64_t> smallPatternSizeDistribution(1, 8);
+	std::uniform_int_distribution<uint64_t> binDist(0, 1);
+	for (unsigned int e = 1; e < numSizeIterations; e++) {
+		if (e % 10 == 0) printf("iteration %d/%d (%.1f%%)\n", e, numSizeIterations, (double) e / numSizeIterations * 100);
 		size_t allocSize;
-		if (e <= 64)
+		if (e <= 512)
 			allocSize = (size_t) e;
 		else {
 			allocSize = sizeDistribution(generator);
 		}
-		auto* alloc = new unsigned char[allocSize];
-		assert(alloc != nullptr);
+		auto* alloc = new unsigned char[allocSize + 1];
+		if (alloc == nullptr) throw std::runtime_error("out of memory");
+		alloc[allocSize] = 0xFF;
 
 		for (size_t i = 0; i < (allocSize & (~7u)); i += 8) *reinterpret_cast<uint64_t*>(&alloc[i]) = distribution(generator);
 		for (size_t i = (allocSize & (~7u)); i < allocSize; i++) alloc[i] = (unsigned char) distribution(generator);
 
-		MemScanner::MemScanner scanner;	 // Don't start sig runner thread, we do not need it
-		testBuffer(scanner, allocSize, alloc);
+		MemScanner::MemScanner scanner;
+		for (int r = 0; r < 5000; r++) {
+			// generate a random pattern and test against a known good algorithm
+			auto patternSize = (r % 3 == 0) ? largePatternSizeDistribution(generator) : smallPatternSizeDistribution(generator);
+			while (patternSize > allocSize) patternSize = smallPatternSizeDistribution(generator);
+			std::vector<uint8_t> pattern(patternSize);
+			std::vector<uint8_t> mask(patternSize, 0xFF);
+
+			for (size_t i = 0; i < (patternSize & (~7u)); i += 8) *reinterpret_cast<uint64_t*>(&pattern[i]) = distribution(generator);
+			for (size_t i = (patternSize & (~7u)); i < patternSize; i++) pattern[i] = (unsigned char) distribution(generator);
+
+			if (r > 1000) {
+				for (size_t i = 1; i < patternSize; i++)
+					if (binDist(generator) == 1) mask[i] = 0;
+			}
+			assert(pattern.size() == mask.size());
+
+			uintptr_t goodFind;
+			bool shouldFindPattern = false;
+			while (true) {
+				goodFind = (uintptr_t) knownGoodPatternSearch(pattern, mask, (uintptr_t) alloc, (uintptr_t) &alloc[allocSize]);
+				assert(!(shouldFindPattern && goodFind == 0));
+				auto ourFind =
+					(uintptr_t) scanner.findSignatureInRange<true>(pattern, mask, (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], testCache, testCache);
+
+				if (goodFind != ourFind) {
+					fprintf(stderr, "\nMismatch: %llX != %llX\n", goodFind, ourFind);
+					if (goodFind != 0) fprintf(stderr, "goodFind = %zd\n", goodFind - (uintptr_t) alloc);
+					if (ourFind != 0) fprintf(stderr, "ourFind = %zd\n", ourFind - (uintptr_t) alloc);
+					fprintf(stderr, "\nAlloc Size: %zd\n", allocSize);
+					fprintf(stderr, "Pattern(%zd): \t", pattern.size());
+					for (auto i : pattern) fprintf(stderr, "%02X ", i);
+					fprintf(stderr, "\n");
+					fprintf(stderr, "Mask(%zd): \t", mask.size());
+					for (auto i : mask) fprintf(stderr, "%02X ", i);
+
+					fprintf(stderr, "\n");
+
+					assert(false);
+				}
+				if (goodFind != 0 || testCache) break;
+
+				// Place the pattern somewhere in the buffer
+				std::uniform_int_distribution<uint64_t> placeForPattern(0, allocSize - patternSize);
+				auto place = placeForPattern(generator);
+				for (auto i = 0; i < patternSize; i++) {
+					if (mask.at(i) == 0) continue;
+					alloc[i + place] = pattern[i];
+				}
+				shouldFindPattern = true;
+			}
+		}
 
 		delete[] alloc;
 	}
@@ -344,7 +429,9 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	testRandomSyntheticBufferSize();
+	testRandomSyntheticBufferSize<false>();
+	// testRandomSyntheticBufferSize<true>(); // test with cache enabled
+
 	testSyntheticBufferSize(enableBenchmark);
 	testSyntheticBuffer(enableBenchmark);
 	if (enableBenchmark) testSelf();
