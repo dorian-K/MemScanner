@@ -40,7 +40,7 @@ unsigned char* knownGoodPatternSearch(const std::vector<uint8_t>& bytes, const s
 		i = (uintptr_t) std::find(reinterpret_cast<uint8_t*>(i), reinterpret_cast<uint8_t*>(end + 1), startByte);
 		if (i == end + 1) break;
 
-		int off = 1;
+		unsigned int off = 1;
 		for (; off < patternSize; off++) {
 			if (*(uint8_t*) (i + off) != bytesStart[off] && maskStart[off] != 0) break;
 		}
@@ -349,13 +349,13 @@ void testRandomSyntheticBufferSize() {
 			}
 			assert(pattern.size() == mask.size());
 
-			uintptr_t goodFind;
+			uint64_t goodFind;
 			bool shouldFindPattern = false;
 			while (true) {
-				goodFind = (uintptr_t) knownGoodPatternSearch(pattern, mask, (uintptr_t) alloc, (uintptr_t) &alloc[allocSize]);
+				goodFind = (uint64_t) knownGoodPatternSearch(pattern, mask, (uintptr_t) alloc, (uintptr_t) &alloc[allocSize]);
 				assert(!(shouldFindPattern && goodFind == 0));
 				auto ourFind =
-					(uintptr_t) scanner.findSignatureInRange<true>(pattern, mask, (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], testCache, testCache);
+					(uint64_t) scanner.findSignatureInRange<true>(pattern, mask, (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], testCache, testCache);
 
 				if (goodFind != ourFind) {
 					fprintf(stderr, "\nMismatch: %llX != %llX\n", goodFind, ourFind);
@@ -377,7 +377,7 @@ void testRandomSyntheticBufferSize() {
 				// Place the pattern somewhere in the buffer
 				std::uniform_int_distribution<uint64_t> placeForPattern(0, allocSize - patternSize);
 				auto place = placeForPattern(generator);
-				for (auto i = 0; i < patternSize; i++) {
+				for (auto i = 0u; i < patternSize; i++) {
 					if (mask.at(i) == 0) continue;
 					alloc[i + place] = pattern[i];
 				}
