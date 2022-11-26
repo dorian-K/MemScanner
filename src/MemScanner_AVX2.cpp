@@ -4,8 +4,9 @@
 namespace MemScanner {
 	template <bool forward>
 	void *MemScanner::findSignatureFastAVX2(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t rangeStart, uintptr_t rangeEnd) {
+		if constexpr (!forward) return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
 		const int patternSize = (int) mask.size();
-		if (patternSize <= 2 || !forward) return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
+		if (patternSize <= 2) return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
 		if (!MemScanner::hasFullAVXSupport()) return this->findSignatureFast8<true>(bytes, mask, rangeStart, rangeEnd);
 		if (rangeStart + std::max((size_t) 32, bytes.size()) > rangeEnd) MEM_UNLIKELY
 		return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);

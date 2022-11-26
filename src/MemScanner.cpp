@@ -253,8 +253,9 @@ namespace MemScanner {
 
 	template <bool forward>
 	void *MemScanner::findSignatureFast8(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, uintptr_t rangeStart, uintptr_t rangeEnd) {
+		if constexpr (!forward) return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
 		const int patternSize = (int) mask.size();
-		if (!forward || patternSize < 8) return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
+		if (patternSize < 8) return this->findSignatureFast1<forward>(bytes, mask, rangeStart, rangeEnd);
 		if (rangeStart + bytes.size() > rangeEnd) MEM_UNLIKELY
 		return nullptr;
 
