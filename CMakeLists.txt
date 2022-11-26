@@ -14,11 +14,15 @@ endif()
 
 if(MEMSCANNER_STRICT)
     # Enable all warnings, treat warnings as errors
-    if(MSVC)
+    if (MSVC)
+        if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+            # Clang-cl
+            add_compile_options(/clang:-Wall /clang:-Wextra /clang:-Wpedantic /clang:-Wconversion /clang:-Weffc++)
+        endif ()
         add_compile_options(/W4 /WX)
-    else()
+    else ()
         add_compile_options(-Wall -Wextra -Wpedantic -Werror -Wno-unused-parameter -Wconversion -Weffc++)
-    endif()
+    endif ()
 endif()
 
 find_package(Threads REQUIRED)
