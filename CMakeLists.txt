@@ -17,11 +17,11 @@ if(MEMSCANNER_STRICT)
     if (MSVC)
         if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
             # Clang-cl
-            add_compile_options(/clang:-Wall /clang:-Wextra /clang:-Wpedantic /clang:-Wconversion /clang:-Weffc++)
+            add_compile_options(/clang:-Wall /clang:-Wextra /clang:-Wpedantic /clang:-Wconversion)
         endif ()
         add_compile_options(/W4 /WX)
     else ()
-        add_compile_options(-Wall -Wextra -Wpedantic -Werror -Wno-unused-parameter -Wconversion -Weffc++)
+        add_compile_options(-Wall -Wextra -Wpedantic -Werror -Wno-unused-parameter -Wconversion)
     endif ()
 endif()
 
