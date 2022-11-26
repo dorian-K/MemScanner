@@ -84,4 +84,4 @@ cmake-build-debugcross/
 httpRequests/
 Testing/
 build/
-
+.idea
