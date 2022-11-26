@@ -309,7 +309,7 @@ void testSyntheticBufferSize(bool enableBenchmark) {
 template <bool testCache>
 void testRandomSyntheticBufferSize() {
 	const size_t maxBuffer = 0x4000;
-	const int numSizeIterations = 1500;
+	const int numSizeIterations = 1000;
 
 	std::default_random_engine generator(testCache ? 123 : 124);  // predictable seed
 	std::uniform_int_distribution<uint64_t> distribution(0, 0xFFFFFFFFFFFFFFFF);
@@ -320,7 +320,7 @@ void testRandomSyntheticBufferSize() {
 	for (unsigned int e = 1; e < numSizeIterations; e++) {
 		if (e % 10 == 0) printf("iteration %d/%d (%.1f%%)\n", e, numSizeIterations, (double) e / numSizeIterations * 100);
 		size_t allocSize;
-		if (e <= 512)
+		if (e <= 384)
 			allocSize = (size_t) e;
 		else {
 			allocSize = sizeDistribution(generator);
