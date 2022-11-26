@@ -152,7 +152,7 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 		wakeupSignal.push_back(0);
 	}
 
-	unsigned int numIters = 0x500000000 / allocSize;
+	auto numIters = 0x500000000L / allocSize;
 
 	auto doStuff = [&](uintptr_t from, uintptr_t to, int index) {
 		while (true) {
@@ -194,7 +194,7 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 		if (t.joinable()) t.join();
 
 	if (numScanned[0] != numIters) {
-		printf("numScanned[0] != numIters: %d != %d\n", numScanned[0], numIters);
+		printf("numScanned[0] != numIters: %d != %zd\n", numScanned[0], numIters);
 		assert(false);
 	}
 
@@ -266,7 +266,7 @@ void testSyntheticBufferSize(bool enableBenchmark) {
 		MemScanner::MemScanner scanner;	 // Don't start sig runner thread, we do not need it
 		testBuffer(scanner, allocSize, alloc);
 		if (enableBenchmark) {
-			printf("Benchmarking single threaded synthetic 0x%lX buffer...\n", allocSize);
+			printf("Benchmarking single threaded synthetic 0x%zX buffer...\n", allocSize);
 			for (int i = 0; i < 5; i++) benchmarkScan(scanner, alloc, allocSize);
 		}
 	}

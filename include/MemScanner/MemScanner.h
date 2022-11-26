@@ -26,8 +26,8 @@ namespace MemScanner {
 
 			SearchMapKey() = default;
 
-			SearchMapKey(const uint8_t *byt, const uint8_t *mas, int num) {
-				numBytesUsed = std::min(num, 8);
+			SearchMapKey(const uint8_t *byt, const uint8_t *mas, unsigned int num) {
+				numBytesUsed = (uint8_t)std::min(num, 8u);
 				for (int i = 0; i < numBytesUsed; i++) {
 					bytes[i] = byt[i];
 					mask[i] = mas[i];
@@ -36,7 +36,7 @@ namespace MemScanner {
 			}
 
 			SearchMapKey(const std::vector<uint8_t> &byt, const std::vector<uint8_t> &mas) {
-				numBytesUsed = std::min((int) byt.size(), 8);
+				numBytesUsed = (uint8_t) std::min((int)byt.size(), 8);
 				for (int i = 0; i < numBytesUsed; i++) {
 					bytes[i] = byt[i];
 					mask[i] = mas[i];

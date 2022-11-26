@@ -11,6 +11,15 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     endif()
 endif()
 
+if(MEMSCANNER_STRICT)
+    # Enable all warnings, treat warnings as errors
+    if(MSVC)
+        add_compile_options(/W4 /WX)
+    else()
+        add_compile_options(-Wall -Wextra -Wpedantic -Werror)
+    endif()
+endif()
+
 find_package(Threads REQUIRED)
 
 add_library(MemScanner src/MemScanner.cpp include/MemScanner/MemScanner.h src/Mem.cpp include/MemScanner/Mem.h)
