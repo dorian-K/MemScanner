@@ -136,7 +136,7 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 	auto patternPair = MemScanner::MemScanner::ParseSignature(impossibleSig);
 	auto patternBytes = std::get<0>(patternPair);
 	auto patternMask = std::get<1>(patternPair);
-	int numBytes = 12;
+	unsigned int numBytes = 12;
 	scanner.evictCache();
 	assert(scanner.findSignatureInRange<true>(patternBytes, patternMask, (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], false) == nullptr);
 	assert(scanner.findSignatureInRange<false>(patternBytes, patternMask, (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], false) == nullptr);
