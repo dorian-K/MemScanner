@@ -161,7 +161,7 @@ namespace MemScanner {
 		// http://stackoverflow.com/a/22521619/922184
 		bool avxSupported = false;
 
-		unsigned int cpuInfo[4];
+		unsigned int cpuInfo[4]{};
 		cpuid_impl(cpuInfo, 1, 0);
 
 		bool osUsesXSAVE_XRSTORE = (cpuInfo[2] & (1 << 27)) != 0;
@@ -186,7 +186,7 @@ namespace MemScanner {
 		}
 		// CPU support - https://github.com/Mysticial/FeatureDetector/blob/master/src/x86/cpu_x86.cpp#L109
 		bool avx = false, avx2 = false;
-		unsigned int info[4];
+		unsigned int info[4]{};
 		cpuid_impl(info, 0, 0);
 		int nIds = info[0];
 

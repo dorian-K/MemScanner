@@ -25,4 +25,4 @@ namespace MemScanner {
 		void *findSignature(const std::vector<uint8_t> &bytes, const std::vector<uint8_t> &mask, bool enableCache = true, void *module = nullptr,
 							const char *section = ".text");
 	};
-};	// namespace MemScanner
+}  // namespace MemScanner

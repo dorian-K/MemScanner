@@ -136,4 +136,4 @@ namespace MemScanner {
 		void evictCache();
 	};
 
-};	// namespace MemScanner
+}  // namespace MemScanner
