@@ -264,24 +264,6 @@ void benchmarkBuffer(MemScanner::MemScanner& scanner, size_t allocSize, unsigned
 	}
 }
 
-void testSyntheticBuffer(bool doBenchmark = true) {
-	const size_t allocSize = 0x5000000;	 // ~83MB
-
-	auto* alloc = new unsigned char[allocSize];
-
-	std::default_random_engine generator(123);	// predictable seed
-	std::uniform_int_distribution<uint64_t> distribution(0, 0xFFFFFFFFFFFFFFFF);
-
-	for (size_t i = 0; i < allocSize; i += 8) *reinterpret_cast<uint64_t*>(&alloc[i]) = distribution(generator);
-	printf("Allocated!\n");
-
-	MemScanner::MemScanner scanner;	 // Don't start sig runner thread, we do not need it
-	testBuffer(scanner, allocSize, alloc);
-	if (doBenchmark) benchmarkBuffer(scanner, allocSize, alloc, "synthetic");
-
-	delete[] alloc;
-}
-
 void testSyntheticBufferSize(bool enableBenchmark) {
 	const size_t maxBuffer = enableBenchmark ? 0x10000000 : 0x100000;
 
@@ -333,7 +315,7 @@ void testRandomSyntheticBufferSize() {
 		for (size_t i = (allocSize & (~7u)); i < allocSize; i++) alloc[i] = (unsigned char) distribution(generator);
 
 		MemScanner::MemScanner scanner;
-		for (int r = 0; r < 5000; r++) {
+		for (int r = 0; r < (testCache ? 2000 : 5000); r++) {
 			// generate a random pattern and test against a known good algorithm
 			auto patternSize = (r % 3 == 0) ? largePatternSizeDistribution(generator) : smallPatternSizeDistribution(generator);
 			while (patternSize > allocSize) patternSize = smallPatternSizeDistribution(generator);
@@ -430,10 +412,10 @@ int main(int argc, char* argv[]) {
 	}
 
 	testRandomSyntheticBufferSize<false>();
-	// testRandomSyntheticBufferSize<true>(); // test with cache enabled
+	if(!enableBenchmark)
+		testRandomSyntheticBufferSize<true>(); // test with cache enabled
 
 	testSyntheticBufferSize(enableBenchmark);
-	testSyntheticBuffer(enableBenchmark);
 	if (enableBenchmark) testSelf();
 	// testSecondary(fs::path("/"));
 
