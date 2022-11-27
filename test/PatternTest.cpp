@@ -412,8 +412,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	testRandomSyntheticBufferSize<false>();
-	if(!enableBenchmark)
-		testRandomSyntheticBufferSize<true>(); // test with cache enabled
+	if (!enableBenchmark) testRandomSyntheticBufferSize<true>();  // test with cache enabled
 
 	testSyntheticBufferSize(enableBenchmark);
 	if (enableBenchmark) testSelf();
