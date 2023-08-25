@@ -145,7 +145,7 @@ double benchmarkScan(MemScanner::MemScanner& scanner, unsigned char* alloc, size
 	auto [patternBytes, patternMask] = MemScanner::MemScanner::ParseSignature(impossibleSig);
 	auto start = std::chrono::high_resolution_clock::now();
 	uintptr_t useful = 0;
-	const size_t numIterations = std::clamp((size_t)/*assume 5000mb/s*/ 5000000000 / (allocSize + 1), (size_t) 20, (size_t) 50000000);
+	const size_t numIterations = std::clamp((size_t) /*assume 5000mb/s*/ 5000000000 / (allocSize + 1), (size_t) 20, (size_t) 50000000);
 	unsigned int i = 0;
 	for (; i < numIterations; i++)
 		useful += (uintptr_t) scanner.findSignatureInRange<true>(patternBytes, patternMask, (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], false, false);
