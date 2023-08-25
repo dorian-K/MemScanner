@@ -179,7 +179,7 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 		wakeupSignal.push_back(0);
 	}
 
-	uint64_t numIters = 0x500000000L / allocSize;
+	long long unsigned int numIters = 0x500000000L / allocSize;
 
 	auto doStuff = [&](uintptr_t from, uintptr_t to, unsigned int index) {
 		while (true) {
