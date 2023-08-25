@@ -145,7 +145,7 @@ double benchmarkScan(MemScanner::MemScanner& scanner, unsigned char* alloc, size
 	auto [patternBytes, patternMask] = MemScanner::MemScanner::ParseSignature(impossibleSig);
 	auto start = std::chrono::high_resolution_clock::now();
 	uintptr_t useful = 0;
-	const size_t numIterations = std::clamp(/*assume 5000mb/s*/ 5000000000 / (allocSize + 1), (size_t) 20, (size_t) 50000000);
+	const size_t numIterations = std::clamp((size_t)/*assume 5000mb/s*/ 5000000000 / (allocSize + 1), (size_t) 20, (size_t) 50000000);
 	unsigned int i = 0;
 	for (; i < numIterations; i++)
 		useful += (uintptr_t) scanner.findSignatureInRange<true>(patternBytes, patternMask, (uintptr_t) alloc, (uintptr_t) &alloc[allocSize], false, false);
@@ -179,7 +179,7 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 		wakeupSignal.push_back(0);
 	}
 
-	auto numIters = 0x500000000L / allocSize;
+	uint64_t numIters = 0x500000000L / allocSize;
 
 	auto doStuff = [&](uintptr_t from, uintptr_t to, unsigned int index) {
 		while (true) {
@@ -221,7 +221,7 @@ void benchmarkMultiThreadedScan(MemScanner::MemScanner& scanner, unsigned char* 
 		if (t.joinable()) t.join();
 
 	if (numScanned[0] != numIters) {
-		printf("numScanned[0] != numIters: %d != %zd\n", numScanned[0], numIters);
+		printf("numScanned[0] != numIters: %d != %llu\n", numScanned[0], numIters);
 		assert(false);
 	}
 
